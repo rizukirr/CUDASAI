@@ -4,8 +4,7 @@
 #include <stddef.h>
 
 enum cudaError_t { cudaSuccess, cudaErrorMemoryAllocation };
-enum { cudaMemAttachGlobal = 1 };
-cudaError_t cudaMallocManaged(void **ptr, size_t size, unsigned int flags);
+cudaError_t cudaMalloc(void **ptr, size_t size);
 cudaError_t cudaFree(void *ptr);
 
 #endif

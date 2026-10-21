@@ -11,8 +11,7 @@ static bool fail_allocation;
 static unsigned int allocations;
 static unsigned int releases;
 
-cudaError_t cudaMallocManaged(void **ptr, size_t size, unsigned int flags) {
-  assert(flags == cudaMemAttachGlobal);
+cudaError_t cudaMalloc(void **ptr, size_t size) {
   if (fail_allocation)
     return cudaErrorMemoryAllocation;
   *ptr = std::malloc(size);
@@ -34,11 +33,6 @@ cudaError_t cudaFree(void *ptr) {
 #include "../vendor/arena.h"
 
 int main() {
-#ifdef ARENA_USE_CUDA
-  fail_allocation = true;
-  assert(arena_create(128) == nullptr);
-  fail_allocation = false;
-#endif
   Arena *arena = arena_create(128);
   assert(arena);
 #ifdef ARENA_USE_CUDA

@@ -1,109 +1,106 @@
 #define ARENA_USE_CUDA
-#define ARENA_IMPLEMENTATION
 #include "_array.h"
-#include "arena.h"
-#include "array.h"
+#include <assert.h>
+#include <math.h>
 #include <string.h>
 
 void random_fill_float32(float *data, size_t count, float low, float high) {
-
   for (size_t i = 0; i < count; i++) {
-    data[i] = low + (rand() / ((float)RAND_MAX + 1.0)) * (high - low);
+    data[i] = low + (rand() / ((float)RAND_MAX + 1.0f)) * (high - low);
   }
 }
 
 void random_fill_float64(double *data, size_t count, double low, double high) {
-
   for (size_t i = 0; i < count; i++) {
     data[i] = low + (rand() / ((double)RAND_MAX + 1.0)) * (high - low);
   }
 }
 
-size_t cds_count(const size_t *shape, const size_t dim) {
-  size_t count = 1;
-  for (size_t i = 0; i < dim; i++) {
-    count *= shape[i];
-  }
-  return count;
-}
-
-bool cds_strides(const size_t *shape, const size_t dim, const size_t elem_size,
-                 size_t *strides) {
-  strides[dim - 1] = elem_size;
-  for (size_t i = dim - 1; i > 0; i--) {
-    if (__builtin_mul_overflow(strides[i], shape[i], &strides[i - 1])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-Cds *cds_new_rand(Arena *arena, const size_t *shape, size_t dim, CdsType type) {
-  assert(arena != nullptr);
+bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type) {
+  assert(self != nullptr);
   assert(shape != nullptr);
   assert(dim > 0);
   assert(dim <= CDS_MAX_DIM);
-  assert(type != CDS_FLOAT32 && type != CDS_FLOAT64);
+  assert(type == CDS_FLOAT32 || type == CDS_FLOAT64);
 
-  Cds *self = (Cds *)arena_alloc(arena, sizeof(Cds), alignof(Cds));
   self->dim = dim;
   self->type = type;
   self->elem_size = cds_type_size[type];
-  self->count = cds_count(shape, dim);
-  self->capacity = self->count * self->elem_size;
   memcpy(self->shape, shape, sizeof(size_t) * dim);
-  if (!cds_strides(shape, dim, self->elem_size, self->strides)) {
+
+  // Strides in bytes, innermost first, so the last stride is the element size
+  // and strides[0] * shape[0] is the total byte size.
+  self->strides[dim - 1] = self->elem_size;
+  for (size_t i = dim - 1; i > 0; i--) {
+    if (__builtin_mul_overflow(self->strides[i], shape[i],
+                               &self->strides[i - 1]))
+      return false;
+  }
+  if (__builtin_mul_overflow(self->strides[0], shape[0], &self->capacity))
+    return false;
+
+  self->count = self->capacity / self->elem_size;
+  self->data = nullptr;
+  self->arena = nullptr;
+  return true;
+}
+
+// Allocate the struct on the host and the data region from `arena`.
+static Cds *cds_new_in_arena(Arena *arena, const size_t *shape, size_t dim,
+                             CdsType type) {
+  assert(arena != nullptr);
+
+  Cds *self = (Cds *)malloc(sizeof(Cds));
+  if (!self)
+    return nullptr;
+
+  if (!cds_init_meta(self, shape, dim, type)) {
+    free(self);
     return nullptr;
   }
 
   self->arena = arena;
   self->data = arena_alloc(arena, self->capacity, cds_alignof[type]);
   if (!self->data) {
+    free(self);
+    return nullptr;
+  }
+  return self;
+}
+
+Cds *cds_new_rand(Arena *arena, const size_t *shape, size_t dim, CdsType type) {
+  Cds *self = cds_new_in_arena(arena, shape, dim, type);
+  if (!self)
+    return nullptr;
+
+  void *staging = malloc(self->capacity);
+  if (!staging) {
+    free(self);
     return nullptr;
   }
 
-  double bound = 1.0 / sqrt(self->shape[self->dim - 1]);
+  double bound = 1.0 / sqrt((double)self->shape[self->dim - 1]);
   switch (self->type) {
   case CDS_FLOAT32:
-    random_fill_float32(static_cast<float *>(self->data), self->count, -bound,
-                        bound);
+    random_fill_float32((float *)staging, self->count, (float)-bound,
+                        (float)bound);
     break;
   case CDS_FLOAT64:
-    random_fill_float64(static_cast<double *>(self->data), self->count, -bound,
-                        bound);
+    random_fill_float64((double *)staging, self->count, -bound, bound);
     break;
-  default:
-    return nullptr;
   }
 
+  CUDA_CHECK(
+      cudaMemcpy(self->data, staging, self->capacity, cudaMemcpyHostToDevice));
+  free(staging);
   return self;
 }
 
 Cds *cds_new_tmp(Arena *arena, const size_t *shape, size_t dim, CdsType type) {
-  assert(arena != nullptr);
-  assert(shape != nullptr);
-  assert(dim > 0);
-  assert(dim <= CDS_MAX_DIM);
-  assert(type != CDS_FLOAT32 && type != CDS_FLOAT64);
-
-  Cds *self = (Cds *)arena_alloc(arena, sizeof(Cds), alignof(Cds));
-  self->dim = dim;
-  self->type = type;
-  self->elem_size = cds_type_size[type];
-  self->count = cds_count(shape, dim);
-  self->capacity = self->count * self->elem_size;
-  memcpy(self->shape, shape, sizeof(size_t) * dim);
-  if (!cds_strides(shape, dim, self->elem_size, self->strides)) {
+  Cds *self = cds_new_in_arena(arena, shape, dim, type);
+  if (!self)
     return nullptr;
-  }
 
-  self->arena = arena;
-  self->data = arena_alloc(arena, self->capacity, cds_alignof[type]);
-  if (!self->data) {
-    return nullptr;
-  }
-  memset(self->data, 0, self->capacity);
-
+  CUDA_CHECK(cudaMemset(self->data, 0, self->capacity));
   return self;
 }

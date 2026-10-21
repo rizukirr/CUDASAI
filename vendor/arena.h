@@ -23,10 +23,13 @@
 #ifndef ARENA_H
 #define ARENA_H
 
-/* Define ARENA_USE_CUDA consistently across translation units to allocate with
-   cudaMallocManaged/cudaFree. Allocator hooks below still override the defaults.
-   Arena operations run on the host. Finish GPU work before reusing allocations
-   through reset/restore or releasing them with arena_free(). */
+/* Define ARENA_USE_CUDA consistently across translation units to place block
+   data regions in device memory with cudaMalloc/cudaFree. Block headers and the
+   Arena struct always live on the host. Allocator hooks below still override
+   the defaults. Arena operations run on the host, and pointers returned by
+   arena_alloc() under ARENA_USE_CUDA are device addresses. Finish GPU work
+   before reusing allocations through reset/restore or releasing them with
+   arena_free(). */
 #ifdef ARENA_USE_CUDA
 #include <cuda_runtime_api.h>
 #endif
@@ -49,25 +52,29 @@ extern "C" {
 #define ARENA_NULLPTR NULL
 #endif
 
-/* Allocator hooks. Define either macro before including this header to
-   substitute your own allocator. */
+/* Allocator hooks. ARENA_MALLOC/ARENA_FREE allocate host bookkeeping (the
+   Arena struct and block headers). ARENA_DATA_MALLOC/ARENA_DATA_FREE allocate
+   the block data regions handed out by arena_alloc(). Define any of them before
+   including this header to substitute your own allocator. */
 #ifdef ARENA_USE_CUDA
 
-#ifndef ARENA_MALLOC
+#ifndef ARENA_DATA_MALLOC
 static inline void *arena_cuda_malloc(size_t size) {
   void *ptr = ARENA_NULLPTR;
-  if (cudaMallocManaged(&ptr, size, cudaMemAttachGlobal) != cudaSuccess)
+  if (cudaMalloc(&ptr, size) != cudaSuccess)
     return ARENA_NULLPTR;
   return ptr;
 }
-#define ARENA_MALLOC(size) arena_cuda_malloc(size)
+#define ARENA_DATA_MALLOC(size) arena_cuda_malloc(size)
 #endif
 
-#ifndef ARENA_FREE
-#define ARENA_FREE(ptr) ((void)cudaFree(ptr))
+#ifndef ARENA_DATA_FREE
+#define ARENA_DATA_FREE(ptr) ((void)cudaFree(ptr))
 #endif
 
-#elif defined(_WIN32)
+#endif
+
+#if defined(_WIN32)
 #include <windows.h>
 
 #ifndef ARENA_MALLOC
@@ -92,6 +99,15 @@ static inline void *arena_cuda_malloc(size_t size) {
 #define ARENA_FREE(ptr) free(ptr)
 #endif
 
+#endif
+
+/* Data regions default to the same allocator as the bookkeeping. */
+#ifndef ARENA_DATA_MALLOC
+#define ARENA_DATA_MALLOC(size) ARENA_MALLOC(size)
+#endif
+
+#ifndef ARENA_DATA_FREE
+#define ARENA_DATA_FREE(ptr) ARENA_FREE(ptr)
 #endif
 
 /**
@@ -259,28 +275,22 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint);
  *
  * Each block contains:
  *   - `next` pointer (linked list)
- *   - `capacity` total size of the block
+ *   - `data` the region handed out by arena_alloc(), from ARENA_DATA_MALLOC
+ *   - `capacity` total size of the data region
  *   - `index` current write position
  *
- * The memory region itself is allocated immediately after the header in the
- * same allocation and is reached via arena_block_data(). A flexible array
- * member would be the obvious way to express that, but it is a C99 feature
- * that ISO C++ forbids, and this header must be includable from C++.
+ * The header lives in host memory from ARENA_MALLOC. The data region is a
+ * separate allocation so it can live in device memory under ARENA_USE_CUDA.
  */
 struct ArenaBlock {
   struct ArenaBlock *next;
+  uint8_t *data;
   size_t capacity;
   size_t index;
 };
 
-/**
- * @brief Address of a block's memory region.
- *
- * The region begins immediately after the block header, so this is exactly
- * where a `uint8_t data[]` flexible array member would have started.
- */
 static uint8_t *arena_block_data(struct ArenaBlock *block) {
-  return (uint8_t *)(block + 1);
+  return block->data;
 }
 
 /**
@@ -332,18 +342,26 @@ static size_t arena_block_size_for(const Arena *arena, size_t min_needed) {
 }
 
 static struct ArenaBlock *arena_block_create(size_t capacity) {
-  size_t total_size = 0;
-  if (arena_add_overflow(sizeof(struct ArenaBlock), capacity, &total_size))
-    return ARENA_NULLPTR;
-
-  struct ArenaBlock *block = (struct ArenaBlock *)ARENA_MALLOC(total_size);
+  struct ArenaBlock *block =
+      (struct ArenaBlock *)ARENA_MALLOC(sizeof(struct ArenaBlock));
   if (!block)
     return ARENA_NULLPTR;
+
+  block->data = (uint8_t *)ARENA_DATA_MALLOC(capacity);
+  if (!block->data) {
+    ARENA_FREE(block);
+    return ARENA_NULLPTR;
+  }
 
   block->next = ARENA_NULLPTR;
   block->capacity = capacity;
   block->index = 0;
   return block;
+}
+
+static void arena_block_destroy(struct ArenaBlock *block) {
+  ARENA_DATA_FREE(block->data);
+  ARENA_FREE(block);
 }
 
 Arena *arena_create(size_t default_block_size) {
@@ -438,7 +456,7 @@ void arena_free(Arena *arena) {
   struct ArenaBlock *block = arena->head;
   while (block) {
     struct ArenaBlock *next = block->next;
-    ARENA_FREE(block);
+    arena_block_destroy(block);
     block = next;
   }
   ARENA_FREE(arena);
