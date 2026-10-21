@@ -10,14 +10,14 @@ Cds *cds_linear(Cds *data, size_t out_features, bool use_bias) {
   assert(data != nullptr);
 
   size_t w_shape[] = {out_features, data->shape[data->dim - 1]};
-  Cds *weights = cds_new_rand(data->arena, w_shape, 2, data->type);
+  Cds *weights = cds_new_rand(data, w_shape, 2, data->type);
   if (!weights)
     return nullptr;
 
   Cds *bias = nullptr;
   if (use_bias) {
     size_t b_shape[] = {out_features};
-    bias = cds_new_rand(data->arena, b_shape, 1, data->type);
+    bias = cds_new_rand(data, b_shape, 1, data->type);
     if (!bias)
       return nullptr;
   }
@@ -26,6 +26,6 @@ Cds *cds_linear(Cds *data, size_t out_features, bool use_bias) {
   memcpy(output_shape, data->shape, sizeof(size_t) * data->dim);
   output_shape[data->dim - 1] = out_features;
 
-  // vibekit: forward pass not implemented yet, output stays zero-filled.
-  return cds_new_tmp(data->arena, output_shape, data->dim, data->type);
+  // TODO: forward pass not implemented yet, output stays zero-filled.
+  return cds_new_tmp(data, output_shape, data->dim, data->type);
 }

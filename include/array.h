@@ -42,6 +42,11 @@ CDS_API __host__ __device__ void *cds_data_at(const Cds *self, size_t index);
  */
 CDS_API void cds_to_host(const Cds *self, void *dst);
 
+/**
+ * Release an array created by cds_new together with every array derived from
+ * it, such as the output of cds_linear. Derived arrays are owned by their
+ * root, so calling cds_free on one of them does nothing.
+ */
 CDS_API void cds_free(Cds *self);
 
 #endif // CDS_ARRAY_H

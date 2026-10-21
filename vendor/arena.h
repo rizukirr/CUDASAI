@@ -148,6 +148,16 @@ static inline void *arena_cuda_malloc(size_t size) {
 typedef struct Arena Arena;
 
 /**
+ * @brief Allocator pair for block data regions, selectable per arena.
+ *
+ * arena_create() uses ARENA_DATA_MALLOC/ARENA_DATA_FREE. arena_create_with()
+ * takes an explicit pair, so one build can hold arenas backed by different
+ * memory, for example device memory for tensors and host memory for metadata.
+ */
+typedef void *(*ArenaDataMalloc)(size_t size);
+typedef void (*ArenaDataFree)(void *ptr);
+
+/**
  * @brief Checkpoint structure for saving/restoring arena state.
  *
  * Represents a specific point in the arena's allocation history.
@@ -173,6 +183,27 @@ typedef struct ArenaCheckpoint {
  * @return Pointer to a newly initialized Arena, or nullptr if allocation fails.
  */
 Arena *arena_create(size_t default_block_size);
+
+/**
+ * @brief Create an arena whose block data regions use the given allocator.
+ *
+ * @see arena_create
+ */
+Arena *arena_create_with(size_t default_block_size, ArenaDataMalloc data_malloc,
+                         ArenaDataFree data_free);
+
+/**
+ * @brief Default data allocators, as used by arena_create(). Exposed so a
+ * caller can pass them to arena_create_with() alongside custom ones.
+ */
+void *arena_default_data_malloc(size_t size);
+void arena_default_data_free(void *ptr);
+
+/**
+ * @brief Host heap allocators, always available regardless of ARENA_USE_CUDA.
+ */
+void *arena_host_malloc(size_t size);
+void arena_host_free(void *ptr);
 
 /**
  * @brief Allocate memory from the arena with a specific alignment.
@@ -305,7 +336,14 @@ struct Arena {
   struct ArenaBlock *head;
   struct ArenaBlock *current;
   size_t default_block_size;
+  ArenaDataMalloc data_malloc;
+  ArenaDataFree data_free;
 };
+
+void *arena_default_data_malloc(size_t size) { return ARENA_DATA_MALLOC(size); }
+void arena_default_data_free(void *ptr) { ARENA_DATA_FREE(ptr); }
+void *arena_host_malloc(size_t size) { return ARENA_MALLOC(size); }
+void arena_host_free(void *ptr) { ARENA_FREE(ptr); }
 /**
  * @brief Compute padding needed to align a pointer.
  *
@@ -341,13 +379,14 @@ static size_t arena_block_size_for(const Arena *arena, size_t min_needed) {
                                                 : arena->default_block_size;
 }
 
-static struct ArenaBlock *arena_block_create(size_t capacity) {
+static struct ArenaBlock *arena_block_create(const Arena *arena,
+                                             size_t capacity) {
   struct ArenaBlock *block =
       (struct ArenaBlock *)ARENA_MALLOC(sizeof(struct ArenaBlock));
   if (!block)
     return ARENA_NULLPTR;
 
-  block->data = (uint8_t *)ARENA_DATA_MALLOC(capacity);
+  block->data = (uint8_t *)arena->data_malloc(capacity);
   if (!block->data) {
     ARENA_FREE(block);
     return ARENA_NULLPTR;
@@ -359,13 +398,14 @@ static struct ArenaBlock *arena_block_create(size_t capacity) {
   return block;
 }
 
-static void arena_block_destroy(struct ArenaBlock *block) {
-  ARENA_DATA_FREE(block->data);
+static void arena_block_destroy(const Arena *arena, struct ArenaBlock *block) {
+  arena->data_free(block->data);
   ARENA_FREE(block);
 }
 
-Arena *arena_create(size_t default_block_size) {
-  if (default_block_size == 0)
+Arena *arena_create_with(size_t default_block_size, ArenaDataMalloc data_malloc,
+                         ArenaDataFree data_free) {
+  if (default_block_size == 0 || !data_malloc || !data_free)
     return ARENA_NULLPTR;
 
   Arena *arena = (Arena *)ARENA_MALLOC(sizeof(Arena));
@@ -375,7 +415,14 @@ Arena *arena_create(size_t default_block_size) {
   arena->head = ARENA_NULLPTR;
   arena->current = ARENA_NULLPTR;
   arena->default_block_size = default_block_size;
+  arena->data_malloc = data_malloc;
+  arena->data_free = data_free;
   return arena;
+}
+
+Arena *arena_create(size_t default_block_size) {
+  return arena_create_with(default_block_size, arena_default_data_malloc,
+                           arena_default_data_free);
 }
 
 void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
@@ -393,7 +440,7 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
   // Lazily allocate first block.
   if (!arena->current) {
     struct ArenaBlock *block =
-        arena_block_create(arena_block_size_for(arena, min_needed));
+        arena_block_create(arena, arena_block_size_for(arena, min_needed));
     if (!block)
       return ARENA_NULLPTR;
     arena->head = arena->current = block;
@@ -424,7 +471,7 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
     }
 
     struct ArenaBlock *new_block =
-        arena_block_create(arena_block_size_for(arena, min_needed));
+        arena_block_create(arena, arena_block_size_for(arena, min_needed));
     if (!new_block)
       return ARENA_NULLPTR;
 
@@ -456,7 +503,7 @@ void arena_free(Arena *arena) {
   struct ArenaBlock *block = arena->head;
   while (block) {
     struct ArenaBlock *next = block->next;
-    arena_block_destroy(block);
+    arena_block_destroy(arena, block);
     block = next;
   }
   ARENA_FREE(arena);

@@ -42,42 +42,41 @@ bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type) {
   self->count = self->capacity / self->elem_size;
   self->data = nullptr;
   self->arena = nullptr;
+  self->host = nullptr;
+  self->owner = false;
   return true;
 }
 
-// Allocate the struct on the host and the data region from `arena`.
-static Cds *cds_new_in_arena(Arena *arena, const size_t *shape, size_t dim,
-                             CdsType type) {
-  assert(arena != nullptr);
+// Allocate the struct from the root's host arena and the data region from
+// its device arena. Nothing here needs freeing: both go away with the root.
+static Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
+                            CdsType type) {
+  assert(root != nullptr);
 
-  Cds *self = (Cds *)malloc(sizeof(Cds));
+  Cds *self = (Cds *)arena_alloc(root->host, sizeof(Cds), alignof(Cds));
   if (!self)
     return nullptr;
 
-  if (!cds_init_meta(self, shape, dim, type)) {
-    free(self);
+  if (!cds_init_meta(self, shape, dim, type))
     return nullptr;
-  }
 
-  self->arena = arena;
-  self->data = arena_alloc(arena, self->capacity, cds_alignof[type]);
-  if (!self->data) {
-    free(self);
+  self->arena = root->arena;
+  self->host = root->host;
+  self->data = arena_alloc(root->arena, self->capacity, cds_alignof[type]);
+  if (!self->data)
     return nullptr;
-  }
   return self;
 }
 
-Cds *cds_new_rand(Arena *arena, const size_t *shape, size_t dim, CdsType type) {
-  Cds *self = cds_new_in_arena(arena, shape, dim, type);
+Cds *cds_new_rand(const Cds *root, const size_t *shape, size_t dim,
+                  CdsType type) {
+  Cds *self = cds_new_derived(root, shape, dim, type);
   if (!self)
     return nullptr;
 
   void *staging = malloc(self->capacity);
-  if (!staging) {
-    free(self);
+  if (!staging)
     return nullptr;
-  }
 
   double bound = 1.0 / sqrt((double)self->shape[self->dim - 1]);
   switch (self->type) {
@@ -96,8 +95,9 @@ Cds *cds_new_rand(Arena *arena, const size_t *shape, size_t dim, CdsType type) {
   return self;
 }
 
-Cds *cds_new_tmp(Arena *arena, const size_t *shape, size_t dim, CdsType type) {
-  Cds *self = cds_new_in_arena(arena, shape, dim, type);
+Cds *cds_new_tmp(const Cds *root, const size_t *shape, size_t dim,
+                 CdsType type) {
+  Cds *self = cds_new_derived(root, shape, dim, type);
   if (!self)
     return nullptr;
 

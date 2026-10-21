@@ -23,10 +23,19 @@ Cds *cds_new(const size_t *shape, size_t dim, CdsType type, const void *data) {
     return nullptr;
   }
 
-  self->data = arena_alloc(self->arena, self->capacity, cds_alignof[type]);
-  if (!self->data) {
+  // Structs of arrays derived from this one live here and die with it.
+  self->host = arena_create_with(16 * sizeof(Cds), arena_host_malloc,
+                                 arena_host_free);
+  if (!self->host) {
     arena_free(self->arena);
     free(self);
+    return nullptr;
+  }
+  self->owner = true;
+
+  self->data = arena_alloc(self->arena, self->capacity, cds_alignof[type]);
+  if (!self->data) {
+    cds_free(self);
     return nullptr;
   }
 
@@ -53,11 +62,12 @@ void cds_to_host(const Cds *self, void *dst) {
 }
 
 void cds_free(Cds *self) {
-  if (self == nullptr)
+  if (self == nullptr || !self->owner)
     return;
 
   // Kernels still reading this arena must finish before its memory goes away.
   CUDA_CHECK(cudaDeviceSynchronize());
   arena_free(self->arena);
+  arena_free(self->host);
   free(self);
 }

@@ -27,8 +27,10 @@ struct Cds {
   CdsType type;
   size_t shape[CDS_MAX_DIM];
   size_t strides[CDS_MAX_DIM];
-  void *data; // device pointer
-  Arena *arena;
+  void *data;   // device pointer
+  Arena *arena; // device memory for data
+  Arena *host;  // host memory for Cds structs derived from this array
+  bool owner;   // true only for the root array created by cds_new
 };
 
 // Indexed by CdsType, so the order must match the enum.
@@ -49,16 +51,20 @@ void random_fill_float64(double *data, size_t count, double low, double high);
 bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type);
 
 /**
- * Allocate from `arena` and fill the data with uniform random numbers in
- * [-1/sqrt(fan_in), 1/sqrt(fan_in)] where fan_in is the last dimension.
+ * Allocate a new array from the arenas of `root` and fill the data with
+ * uniform random numbers in [-1/sqrt(fan_in), 1/sqrt(fan_in)] where fan_in is
+ * the last dimension. The result is released by cds_free on the root.
  */
 [[nodiscard]]
-Cds *cds_new_rand(Arena *arena, const size_t *shape, size_t dim, CdsType type);
+Cds *cds_new_rand(const Cds *root, const size_t *shape, size_t dim,
+                  CdsType type);
 
 /**
- * Allocate from `arena` and zero-fill the data.
+ * Allocate a new zero-filled array from the arenas of `root`. The result is
+ * released by cds_free on the root.
  */
 [[nodiscard]]
-Cds *cds_new_tmp(Arena *arena, const size_t *shape, size_t dim, CdsType type);
+Cds *cds_new_tmp(const Cds *root, const size_t *shape, size_t dim,
+                 CdsType type);
 
 #endif // CDS_INTERNAL_H
