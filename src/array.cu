@@ -27,8 +27,8 @@ Cds *cds_new(size_t device_bytes) {
   return self;
 }
 
-CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
-                    CdsType type, const void *data) {
+CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim, CdsType type,
+                    const void *data) {
   CdsArray *self = cds_new_derived(root, shape, dim, type);
   if (!self)
     return nullptr;
@@ -69,10 +69,24 @@ CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
   return self;
 }
 
+CdsCheckpoint cds_checkpoint(const Cds *root) {
+  assert(root != nullptr);
+  CdsCheckpoint cp = {arena_checkpoint(root->arena),
+                      arena_checkpoint(root->host)};
+  return cp;
+}
+
+void cds_restore(Cds *root, CdsCheckpoint cp) {
+  assert(root != nullptr);
+  // Kernels still reading rewound memory must finish before it is reused.
+  CUDA_CHECK(cudaDeviceSynchronize());
+  arena_restore(root->arena, cp.device);
+  arena_restore(root->host, cp.host);
+}
+
 size_t cds_count(const CdsArray *self) { return self->count; }
 
-__host__ __device__ void *cds_data_at(const CdsArray *self,
-                                      size_t index) {
+__host__ __device__ void *cds_data_at(const CdsArray *self, size_t index) {
   return (unsigned char *)self->data + self->elem_size * index;
 }
 

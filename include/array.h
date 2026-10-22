@@ -1,11 +1,19 @@
 #ifndef CDS_ARRAY_H
 #define CDS_ARRAY_H
 
+#include "arena.h"
 #include "export.h"
 #include <stddef.h>
 
 typedef struct Cds Cds;           // a root: owns device memory
 typedef struct CdsArray CdsArray; // an array living inside a root
+
+// A position in a root's allocation history. A plain value: copy it, keep it,
+// restore to it as many times as you like while the root is alive.
+typedef struct CdsCheckpoint {
+  ArenaCheckpoint device;
+  ArenaCheckpoint host;
+} CdsCheckpoint;
 
 typedef enum {
   CDS_FLOAT32,
@@ -35,7 +43,7 @@ CDS_API Cds *cds_new(size_t device_bytes);
  */
 [[nodiscard("check the returned pointer for allocation failure")]]
 CDS_API CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
-                       CdsType type, const void *data);
+                            CdsType type, const void *data);
 
 /**
  * Create an array inside `root` filled with uniform random values in
@@ -46,6 +54,21 @@ CDS_API CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
 [[nodiscard("check the returned pointer for allocation failure")]]
 CDS_API CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
                                  CdsType type);
+
+/**
+ * Record where `root` is now, so cds_restore can reclaim every array created
+ * after this point.
+ */
+[[nodiscard]]
+CDS_API CdsCheckpoint cds_checkpoint(const Cds *root);
+
+/**
+ * Reclaim every array created in `root` after `cp` was taken. Those arrays are
+ * invalid afterwards, including their shape: the struct memory itself is
+ * reused. Waits for the device to go idle first, so no kernel is still reading
+ * the memory that the next cds_array will overwrite.
+ */
+CDS_API void cds_restore(Cds *root, CdsCheckpoint cp);
 
 [[nodiscard]]
 CDS_API size_t cds_count(const CdsArray *self);
