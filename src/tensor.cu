@@ -4,7 +4,6 @@
 #include "tensor.h"
 #include <assert.h>
 #include <cublasLt.h>
-#include <string.h>
 
 #define CUBLAS_CHECK(call)                                                     \
   do {                                                                         \
@@ -23,7 +22,8 @@ static cublasLtHandle_t cds_lt_handle(void) {
   return handle;
 }
 
-static void cds_matmul_lt(const Cds *x, const Cds *w, Cds *bias, Cds *y) {
+static void cds_matmul_lt(const Cds *x, const Cds *w, const Cds *bias,
+                          Cds *y) {
   const int K = (int)x->shape[x->dim - 1];
   const int M = (int)((int)x->count / K);
   const int N = (int)w->shape[0];
@@ -91,31 +91,23 @@ static void cds_matmul_lt(const Cds *x, const Cds *w, Cds *bias, Cds *y) {
   CUBLAS_CHECK(cublasLtMatmulDescDestroy(op));
 }
 
-Cds *cds_linear(Cds *data, size_t out_features, bool use_bias) {
-  assert(out_features > 0);
-  assert(data != nullptr);
+void cds_linear(const Cds *x, const Cds *W, const Cds *b, Cds *y) {
+  assert(x != nullptr);
+  assert(W != nullptr);
+  assert(y != nullptr);
+  assert(W->dim == 2);
+  assert(W->type == x->type && y->type == x->type);
 
-  size_t w_shape[] = {out_features, data->shape[data->dim - 1]};
-  Cds *weights = cds_new_rand(data, w_shape, 2, data->type);
-  if (!weights)
-    return nullptr;
-
-  Cds *bias = nullptr;
-  if (use_bias) {
-    size_t b_shape[] = {out_features};
-    bias = cds_new_rand(data, b_shape, 1, data->type);
-    if (!bias)
-      return nullptr;
+  const size_t in_features = x->shape[x->dim - 1];
+  const size_t out_features = W->shape[0];
+  const size_t batch = x->count / in_features;
+  assert(W->shape[1] == in_features);
+  assert(y->shape[y->dim - 1] == out_features);
+  assert(y->count == batch * out_features);
+  if (b) {
+    assert(b->type == x->type);
+    assert(b->count == out_features);
   }
 
-  size_t output_shape[CDS_MAX_DIM];
-  memcpy(output_shape, data->shape, sizeof(size_t) * data->dim);
-  output_shape[data->dim - 1] = out_features;
-
-  Cds *output = cds_new_tmp(data, output_shape, data->dim, data->type);
-  if (!output)
-    return nullptr;
-
-  cds_matmul_lt(data, weights, bias, output);
-  return output;
+  cds_matmul_lt(x, W, b, y);
 }

@@ -10,12 +10,9 @@ The stages are in dependency order. Finish a stage, including its checks, before
 
 - `cds_new`, `cds_to_host`, `cds_free`: device arrays with a device arena for data and a host arena for metadata.
 - `cds_new_rand`, `cds_new_tmp`: arrays derived from a root, freed with it.
-- `cds_linear`: `y = x · W^T + b` through cuBLASLt, with weights drawn at random on every call.
+- `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. The caller owns all four arrays, so parameters already outlive batches when each is created with its own `cds_new`.
 
-Two decisions must change before inference is possible:
-
-1. Parameters need a lifetime of their own. Today every derived array dies with the input batch, so weights cannot persist across tokens. Stage 1 adds a parameter root.
-2. `cds_linear` must take its weights as arguments. The random-weight version stays useful for tests only.
+One decision must change before inference is possible: parameters and activations need separate roots so a model's hundreds of weight arrays share one allocation and activations can be reset per token. Stage 1 adds the parameter root.
 
 ## Stage 1: memory and plumbing
 
@@ -26,7 +23,6 @@ Two decisions must change before inference is possible:
 | `cds_view(root, src, shape, dim)` | A new `Cds` over existing device memory with a different shape. No copy. Needed for splitting heads and flattening batch dims. | Same `data` pointer, new strides. |
 | `cds_copy(dst, src)` | Device to device copy of `capacity` bytes. | Round trip through host matches. |
 | `cds_fill(dst, value)` | Fill with a scalar. One thread per element, the first kernel you write yourself. | Host readback. |
-| `cds_linear_with(x, W, b, y)` | The matmul from today's `cds_linear`, with parameters passed in and output preallocated. | Same CPU reference as the scratch check used in this repo. |
 
 Also in this stage: a `CdsContext` holding the cuBLASLt handle, a cuBLASLt workspace of 32 MB, and a CUDA stream. Every kernel launch and every cuBLASLt call takes the stream. Without it you cannot overlap anything later, and retrofitting a stream argument into forty functions is painful.
 
@@ -49,7 +45,7 @@ The softmax and layernorm reductions are where most people get their first wrong
 
 | Function | Does | Check |
 |---|---|---|
-| `cds_matmul(a, b, out, transpose_a, transpose_b)` | General `[M,K] · [K,N]` through cuBLASLt with transpose flags. `cds_linear_with` becomes a thin wrapper. | CPU triple loop on 5x7x3. |
+| `cds_matmul(a, b, out, transpose_a, transpose_b)` | General `[M,K] · [K,N]` through cuBLASLt with transpose flags. `cds_linear` becomes a thin wrapper. | CPU triple loop on 5x7x3. |
 | `cds_matmul_batched(a, b, out, ...)` | The same, batched over a leading dimension, using the cuBLASLt strided batch attributes. Attention needs `Q · K^T` and `P · V` once per head. | Loop of single matmuls gives the same result. |
 | `cds_transpose_heads(x, out, n_heads)` | `[seq, n_heads * head_dim]` to `[n_heads, seq, head_dim]` and back. A permute kernel. | Round trip is the identity. |
 
