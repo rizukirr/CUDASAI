@@ -59,12 +59,4 @@ bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type);
 Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
                      CdsType type);
 
-/**
- * cds_new_derived plus a fill with uniform random numbers in
- * [-1/sqrt(fan_in), 1/sqrt(fan_in)] where fan_in is the last dimension.
- */
-[[nodiscard]]
-Cds *cds_new_rand(const Cds *root, const size_t *shape, size_t dim,
-                  CdsType type);
-
 #endif // CDS_INTERNAL_H

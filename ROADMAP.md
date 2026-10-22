@@ -10,7 +10,7 @@ The stages are in dependency order. Finish a stage, including its checks, before
 
 - `cds_new(bytes)`: a root that owns a device arena for data and a host arena for metadata, and holds no data itself.
 - `cds_array(root, shape, dim, type, data)`: an array created inside a root, released with it.
-- `cds_new_rand`: internal, an array inside a root filled with uniform random values.
+- `cds_array_rand(root, shape, dim, type)`: an array inside a root filled with uniform random values, for weights and biases.
 - `cds_to_host`, `cds_free`, `cds_count`, `cds_data_at`.
 - `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. `main.cu` shows the two-root pattern: parameters in one root, activations in another.
 

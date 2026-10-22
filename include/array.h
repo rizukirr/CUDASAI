@@ -36,6 +36,16 @@ CDS_API Cds *cds_new(size_t device_bytes);
 CDS_API Cds *cds_array(Cds *root, const size_t *shape, size_t dim,
                        CdsType type, const void *data);
 
+/**
+ * Create an array inside `root` filled with uniform random values in
+ * [-1/sqrt(fan_in), 1/sqrt(fan_in)], where fan_in is the last dimension of
+ * `shape`. This is the PyTorch default initialisation for linear weights.
+ * Draws from rand(), so call srand() first for a reproducible model.
+ */
+[[nodiscard("check the returned pointer for allocation failure")]]
+CDS_API Cds *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
+                            CdsType type);
+
 [[nodiscard]]
 CDS_API size_t cds_count(const Cds *self);
 

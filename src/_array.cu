@@ -67,8 +67,8 @@ Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
   return self;
 }
 
-Cds *cds_new_rand(const Cds *root, const size_t *shape, size_t dim,
-                  CdsType type) {
+Cds *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
+                    CdsType type) {
   Cds *self = cds_new_derived(root, shape, dim, type);
   if (!self)
     return nullptr;
