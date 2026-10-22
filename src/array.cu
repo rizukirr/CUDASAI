@@ -5,13 +5,13 @@
 #include <math.h>
 
 Cds *cds_new(size_t device_bytes) {
-  Cds *self = (Cds *)calloc(1, sizeof(Cds));
+  Cds *self = (Cds *)ARENA_MALLOC(sizeof(Cds));
   if (!self)
     return nullptr;
 
   self->arena = arena_create(device_bytes);
   if (!self->arena) {
-    free(self);
+    ARENA_FREE(self);
     return nullptr;
   }
 
@@ -20,7 +20,7 @@ Cds *cds_new(size_t device_bytes) {
                                  arena_host_free);
   if (!self->host) {
     arena_free(self->arena);
-    free(self);
+    ARENA_FREE(self);
     return nullptr;
   }
 
@@ -105,5 +105,5 @@ void cds_free(Cds *root) {
   CUDA_CHECK(cudaDeviceSynchronize());
   arena_free(root->arena);
   arena_free(root->host);
-  free(root);
+  ARENA_FREE(root);
 }
