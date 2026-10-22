@@ -31,8 +31,8 @@ int main(void) {
   float b_host[2] = {10, -10};
   size_t w_shape[] = {out_features, in_features};
   size_t b_shape[] = {out_features};
-  Cds *W = cds_array(params, w_shape, 2, CDS_FLOAT32, w_host);
-  Cds *b = cds_array(params, b_shape, 1, CDS_FLOAT32, b_host);
+  CdsArray *W = cds_array(params, w_shape, 2, CDS_FLOAT32, w_host);
+  CdsArray *b = cds_array(params, b_shape, 1, CDS_FLOAT32, b_host);
 
   // Activations: one batch of 4 samples.
   float x_host[4][3] = {
@@ -43,8 +43,8 @@ int main(void) {
   };
   size_t x_shape[] = {batch, in_features};
   size_t y_shape[] = {batch, out_features};
-  Cds *x = cds_array(acts, x_shape, 2, CDS_FLOAT32, x_host);
-  Cds *y = cds_array(acts, y_shape, 2, CDS_FLOAT32, nullptr);
+  CdsArray *x = cds_array(acts, x_shape, 2, CDS_FLOAT32, x_host);
+  CdsArray *y = cds_array(acts, y_shape, 2, CDS_FLOAT32, nullptr);
 
   if (!W || !b || !x || !y) {
     fprintf(stderr, "cds_array failed\n");

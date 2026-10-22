@@ -22,8 +22,8 @@ static cublasLtHandle_t cds_lt_handle(void) {
   return handle;
 }
 
-static void cds_matmul_lt(const Cds *x, const Cds *w, const Cds *bias,
-                          Cds *y) {
+static void cds_matmul_lt(const CdsArray *x, const CdsArray *w,
+                          const CdsArray *bias, CdsArray *y) {
   const int K = (int)x->shape[x->dim - 1];
   const int M = (int)((int)x->count / K);
   const int N = (int)w->shape[0];
@@ -91,7 +91,8 @@ static void cds_matmul_lt(const Cds *x, const Cds *w, const Cds *bias,
   CUBLAS_CHECK(cublasLtMatmulDescDestroy(op));
 }
 
-void cds_linear(const Cds *x, const Cds *W, const Cds *b, Cds *y) {
+void cds_linear(const CdsArray *x, const CdsArray *W, const CdsArray *b,
+                CdsArray *y) {
   assert(x != nullptr);
   assert(W != nullptr);
   assert(y != nullptr);

@@ -13,6 +13,7 @@
  * owns every array, so W and b can live for the whole program while x and y
  * are created per batch.
  */
-CDS_API void cds_linear(const Cds *x, const Cds *W, const Cds *b, Cds *y);
+CDS_API void cds_linear(const CdsArray *x, const CdsArray *W, const CdsArray *b,
+                CdsArray *y);
 
 #endif // CDS_TENSOR_H

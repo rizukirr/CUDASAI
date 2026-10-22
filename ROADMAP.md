@@ -2,14 +2,14 @@
 
 Target: run a GPT-2 small (124M parameters, 12 layers, 768 wide, 12 heads, 1024 context) decoder in fp32 on the RTX 4050 and generate text from a prompt. GPT-2 small is the right first target because its weights are public, it fits in 500 MB, and llm.c ships a plain C reference implementation you can diff against layer by layer.
 
-Every function below follows the same contract: a C-style function over `Cds` arrays, a CPU reference implementation of the same math, and one check that compares the two on small shapes. Build the check before the kernel is fast. A kernel that is fast and wrong is worth nothing.
+Every function below follows the same contract: a C-style function over `CdsArray` values owned by a `Cds` root, a CPU reference implementation of the same math, and one check that compares the two on small shapes. Build the check before the kernel is fast. A kernel that is fast and wrong is worth nothing.
 
 The stages are in dependency order. Finish a stage, including its checks, before starting the next.
 
 ## Stage 0: what exists today
 
-- `cds_new(bytes)`: a root that owns a device arena for data and a host arena for metadata, and holds no data itself.
-- `cds_array(root, shape, dim, type, data)`: an array created inside a root, released with it.
+- `cds_new(bytes)`: a `Cds` root that owns a device arena for array data and a host arena for `CdsArray` structs.
+- `cds_array(root, shape, dim, type, data)`: a `CdsArray` created inside a root, released with it.
 - `cds_array_rand(root, shape, dim, type)`: an array inside a root filled with uniform random values, for weights and biases.
 - `cds_to_host`, `cds_free`, `cds_count`, `cds_data_at`.
 - `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. `main.cu` shows the two-root pattern: parameters in one root, activations in another.
@@ -19,7 +19,7 @@ The stages are in dependency order. Finish a stage, including its checks, before
 | Function | Does | Check |
 |---|---|---|
 | `cds_checkpoint(root)`, `cds_restore(root, cp)` | Wrap `arena_checkpoint` and `arena_restore` on both arenas of the activation root. Called once per generated token so activations are reused instead of growing. | `cds_array` after restore returns the same device address. |
-| `cds_view(root, src, shape, dim)` | A new `Cds` over existing device memory with a different shape. No copy. Needed for splitting heads and flattening batch dims. | Same `data` pointer, new strides. |
+| `cds_view(root, src, shape, dim)` | A new `CdsArray` over existing device memory with a different shape. No copy. Needed for splitting heads and flattening batch dims. | Same `data` pointer, new strides. |
 | `cds_copy(dst, src)` | Device to device copy of `capacity` bytes. | Round trip through host matches. |
 | `cds_fill(dst, value)` | Fill with a scalar. One thread per element, the first kernel you write yourself. | Host readback. |
 

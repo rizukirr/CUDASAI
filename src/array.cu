@@ -16,7 +16,7 @@ Cds *cds_new(size_t device_bytes) {
   }
 
   // Structs of arrays created inside this root live here and die with it.
-  self->host = arena_create_with(16 * sizeof(Cds), arena_host_malloc,
+  self->host = arena_create_with(16 * sizeof(CdsArray), arena_host_malloc,
                                  arena_host_free);
   if (!self->host) {
     arena_free(self->arena);
@@ -24,13 +24,12 @@ Cds *cds_new(size_t device_bytes) {
     return nullptr;
   }
 
-  self->owner = true;
   return self;
 }
 
-Cds *cds_array(Cds *root, const size_t *shape, size_t dim, CdsType type,
-               const void *data) {
-  Cds *self = cds_new_derived(root, shape, dim, type);
+CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
+                    CdsType type, const void *data) {
+  CdsArray *self = cds_new_derived(root, shape, dim, type);
   if (!self)
     return nullptr;
 
@@ -43,9 +42,9 @@ Cds *cds_array(Cds *root, const size_t *shape, size_t dim, CdsType type,
   return self;
 }
 
-Cds *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
-                    CdsType type) {
-  Cds *self = cds_new_derived(root, shape, dim, type);
+CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
+                         CdsType type) {
+  CdsArray *self = cds_new_derived(root, shape, dim, type);
   if (!self)
     return nullptr;
 
@@ -70,27 +69,27 @@ Cds *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
   return self;
 }
 
-size_t cds_count(const Cds *self) { return self->count; }
+size_t cds_count(const CdsArray *self) { return self->count; }
 
-__host__ __device__ void *cds_data_at(const Cds *self, size_t index) {
+__host__ __device__ void *cds_data_at(const CdsArray *self,
+                                      size_t index) {
   return (unsigned char *)self->data + self->elem_size * index;
 }
 
-void cds_to_host(const Cds *self, void *dst) {
+void cds_to_host(const CdsArray *self, void *dst) {
   assert(self != nullptr);
-  assert(self->data != nullptr && "a root holds no data");
   assert(dst != nullptr);
   CUDA_CHECK(
       cudaMemcpy(dst, self->data, self->capacity, cudaMemcpyDeviceToHost));
 }
 
-void cds_free(Cds *self) {
-  if (self == nullptr || !self->owner)
+void cds_free(Cds *root) {
+  if (root == nullptr)
     return;
 
   // Kernels still reading this arena must finish before its memory goes away.
   CUDA_CHECK(cudaDeviceSynchronize());
-  arena_free(self->arena);
-  arena_free(self->host);
-  free(self);
+  arena_free(root->arena);
+  arena_free(root->host);
+  free(root);
 }

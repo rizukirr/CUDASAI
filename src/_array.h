@@ -20,6 +20,11 @@
 constexpr size_t CDS_MAX_DIM = 8;
 
 struct Cds {
+  Arena *arena; // device memory for array data
+  Arena *host;  // host memory for CdsArray structs
+};
+
+struct CdsArray {
   size_t dim;
   size_t elem_size;
   size_t count;
@@ -27,10 +32,7 @@ struct Cds {
   CdsType type;
   size_t shape[CDS_MAX_DIM];
   size_t strides[CDS_MAX_DIM];
-  void *data;   // device pointer
-  Arena *arena; // device memory for data
-  Arena *host;  // host memory for Cds structs derived from this array
-  bool owner;   // true only for the root array created by cds_new
+  void *data; // device pointer
 };
 
 // Indexed by CdsType, so the order must match the enum.
@@ -48,7 +50,8 @@ void random_fill_float64(double *data, size_t count, double low, double high);
  * Returns false when the byte size overflows.
  */
 [[nodiscard("check the returned value for overflow")]]
-bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type);
+bool cds_init_meta(CdsArray *self, const size_t *shape, size_t dim,
+                   CdsType type);
 
 /**
  * Allocate the struct from the root's host arena and the data from its device
@@ -56,7 +59,7 @@ bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type);
  * away with the root.
  */
 [[nodiscard]]
-Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
-                     CdsType type);
+CdsArray *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
+                          CdsType type);
 
 #endif // CDS_INTERNAL_H

@@ -4,7 +4,8 @@
 #include "export.h"
 #include <stddef.h>
 
-typedef struct Cds Cds;
+typedef struct Cds Cds;           // a root: owns device memory
+typedef struct CdsArray CdsArray; // an array living inside a root
 
 typedef enum {
   CDS_FLOAT32,
@@ -18,10 +19,10 @@ static constexpr size_t cds_type_size[] = {
 };
 
 /**
- * Create a root: an owner of device memory that holds no data of its own.
- * Arrays are created inside it with cds_array and all die together when the
- * root is freed. `device_bytes` is the arena block size, not a limit: the
- * root grows by another block when an array does not fit.
+ * Create a root: an owner of device memory. Arrays are created inside it with
+ * cds_array and all die together when the root is freed. `device_bytes` is
+ * the arena block size, not a limit: the root grows by another block when an
+ * array does not fit.
  */
 [[nodiscard("check the returned pointer for allocation failure")]]
 CDS_API Cds *cds_new(size_t device_bytes);
@@ -33,7 +34,7 @@ CDS_API Cds *cds_new(size_t device_bytes);
  * the root, never on its own.
  */
 [[nodiscard("check the returned pointer for allocation failure")]]
-CDS_API Cds *cds_array(Cds *root, const size_t *shape, size_t dim,
+CDS_API CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
                        CdsType type, const void *data);
 
 /**
@@ -43,29 +44,30 @@ CDS_API Cds *cds_array(Cds *root, const size_t *shape, size_t dim,
  * Draws from rand(), so call srand() first for a reproducible model.
  */
 [[nodiscard("check the returned pointer for allocation failure")]]
-CDS_API Cds *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
-                            CdsType type);
+CDS_API CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
+                                 CdsType type);
 
 [[nodiscard]]
-CDS_API size_t cds_count(const Cds *self);
+CDS_API size_t cds_count(const CdsArray *self);
 
 /**
  * Device address of element `index` in row-major order. The returned pointer
  * must only be dereferenced in device code.
  */
 [[nodiscard]]
-CDS_API __host__ __device__ void *cds_data_at(const Cds *self, size_t index);
+CDS_API __host__ __device__ void *cds_data_at(const CdsArray *self,
+                                              size_t index);
 
 /**
  * Copy the whole array from the device into `dst`, which must hold
  * cds_count(self) * sizeof(type) bytes. Blocks until the copy completes.
  */
-CDS_API void cds_to_host(const Cds *self, void *dst);
+CDS_API void cds_to_host(const CdsArray *self, void *dst);
 
 /**
- * Release a root together with every array created inside it. Arrays are
- * owned by their root, so calling cds_free on one of them does nothing.
+ * Release a root together with every array created inside it. Arrays have no
+ * free of their own.
  */
-CDS_API void cds_free(Cds *self);
+CDS_API void cds_free(Cds *root);
 
 #endif // CDS_ARRAY_H

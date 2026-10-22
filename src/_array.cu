@@ -16,7 +16,8 @@ void random_fill_float64(double *data, size_t count, double low, double high) {
   }
 }
 
-bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type) {
+bool cds_init_meta(CdsArray *self, const size_t *shape, size_t dim,
+                   CdsType type) {
   assert(self != nullptr);
   assert(shape != nullptr);
   assert(dim > 0);
@@ -41,26 +42,21 @@ bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type) {
 
   self->count = self->capacity / self->elem_size;
   self->data = nullptr;
-  self->arena = nullptr;
-  self->host = nullptr;
-  self->owner = false;
   return true;
 }
 
-Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
-                     CdsType type) {
+CdsArray *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
+                          CdsType type) {
   assert(root != nullptr);
-  assert(root->owner);
 
-  Cds *self = (Cds *)arena_alloc(root->host, sizeof(Cds), alignof(Cds));
+  CdsArray *self =
+      (CdsArray *)arena_alloc(root->host, sizeof(CdsArray), alignof(CdsArray));
   if (!self)
     return nullptr;
 
   if (!cds_init_meta(self, shape, dim, type))
     return nullptr;
 
-  self->arena = root->arena;
-  self->host = root->host;
   self->data = arena_alloc(root->arena, self->capacity, cds_alignof[type]);
   if (!self->data)
     return nullptr;
