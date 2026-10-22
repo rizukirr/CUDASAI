@@ -30,37 +30,51 @@ int main(void) {
   size_t b_shape[] = {out_features};
   CdsArray *W = cds_array_rand(params, w_shape, 2, CDS_FLOAT32);
   CdsArray *b = cds_array_rand(params, b_shape, 1, CDS_FLOAT32);
-
-  // Activations: one batch of 4 samples.
-  float x_host[4][3] = {
-      {1, 2, 3},
-      {4, 5, 6},
-      {7, 8, 9},
-      {10, 11, 12},
-  };
-  size_t x_shape[] = {batch, in_features};
-  size_t y_shape[] = {batch, out_features};
-  CdsArray *x = cds_array(acts, x_shape, 2, CDS_FLOAT32, x_host);
-  CdsArray *y = cds_array(acts, y_shape, 2, CDS_FLOAT32, nullptr);
-
-  if (!W || !b || !x || !y) {
-    fprintf(stderr, "cds_array failed\n");
+  if (!W || !b) {
+    fprintf(stderr, "cds_array_rand failed\n");
     return 1;
   }
 
-  cds_linear(x, W, b, y);
-
-  float w_host[2][3], b_host[2], y_host[4][2];
+  float w_host[2][3], b_host[2];
   cds_to_host(W, w_host);
   cds_to_host(b, b_host);
-  cds_to_host(y, y_host);
-
-  print_matrix("x", &x_host[0][0], batch, in_features);
   print_matrix("W", &w_host[0][0], out_features, in_features);
   print_matrix("b", b_host, 1, out_features);
-  print_matrix("y = x W^T + b", &y_host[0][0], batch, out_features);
 
-  // W, b, x and y are owned by their roots and go away with them.
+  // Feed three batches through the same layer, the way a generation loop
+  // feeds one token after another. Every batch's activations are created
+  // after the checkpoint and reclaimed by the restore, so the activation
+  // root never grows past what one batch needs.
+  size_t x_shape[] = {batch, in_features};
+  size_t y_shape[] = {batch, out_features};
+  CdsCheckpoint cp = cds_checkpoint(acts);
+
+  for (int step = 0; step < 3; step++) {
+    float x_host[4][3];
+    for (size_t i = 0; i < batch; i++)
+      for (size_t j = 0; j < in_features; j++)
+        x_host[i][j] = (float)(step * 100 + i * in_features + j);
+
+    CdsArray *x = cds_array(acts, x_shape, 2, CDS_FLOAT32, x_host);
+    CdsArray *y = cds_array(acts, y_shape, 2, CDS_FLOAT32, nullptr);
+    if (!x || !y) {
+      fprintf(stderr, "cds_array failed\n");
+      return 1;
+    }
+
+    cds_linear(x, W, b, y);
+
+    float y_host[4][2];
+    cds_to_host(y, y_host);
+
+    printf("\nstep %d, x data at %p\n", step, cds_data_at(x, 0));
+    print_matrix("x", &x_host[0][0], batch, in_features);
+    print_matrix("y = x W^T + b", &y_host[0][0], batch, out_features);
+
+    // x and y are gone after this. The next step reuses the same bytes.
+    cds_restore(acts, cp);
+  }
+
   cds_free(acts);
   cds_free(params);
   return 0;
