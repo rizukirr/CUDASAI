@@ -1,6 +1,7 @@
 #include "array.h"
 #include "tensor.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 static void print_matrix(const char *name, const float *m, size_t rows,
                          size_t cols) {
@@ -21,18 +22,14 @@ int main(void) {
     return 1;
   }
 
-  // Parameters: a 3 to 2 linear layer, loaded once. Row n of W is the weight
-  // vector of output n.
+  // Parameters: a 3 to 2 linear layer with random weights and bias, created
+  // once. The seed makes every run produce the same model.
   const size_t batch = 4, in_features = 3, out_features = 2;
-  float w_host[2][3] = {
-      {1, 0, -1},
-      {0.5f, 0.5f, 0.5f},
-  };
-  float b_host[2] = {10, -10};
+  srand(42);
   size_t w_shape[] = {out_features, in_features};
   size_t b_shape[] = {out_features};
-  CdsArray *W = cds_array(params, w_shape, 2, CDS_FLOAT32, w_host);
-  CdsArray *b = cds_array(params, b_shape, 1, CDS_FLOAT32, b_host);
+  CdsArray *W = cds_array_rand(params, w_shape, 2, CDS_FLOAT32);
+  CdsArray *b = cds_array_rand(params, b_shape, 1, CDS_FLOAT32);
 
   // Activations: one batch of 4 samples.
   float x_host[4][3] = {
@@ -53,11 +50,14 @@ int main(void) {
 
   cds_linear(x, W, b, y);
 
-  float y_host[4][2];
+  float w_host[2][3], b_host[2], y_host[4][2];
+  cds_to_host(W, w_host);
+  cds_to_host(b, b_host);
   cds_to_host(y, y_host);
 
   print_matrix("x", &x_host[0][0], batch, in_features);
   print_matrix("W", &w_host[0][0], out_features, in_features);
+  print_matrix("b", b_host, 1, out_features);
   print_matrix("y = x W^T + b", &y_host[0][0], batch, out_features);
 
   // W, b, x and y are owned by their roots and go away with them.
