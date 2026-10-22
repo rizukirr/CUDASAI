@@ -8,18 +8,17 @@ The stages are in dependency order. Finish a stage, including its checks, before
 
 ## Stage 0: what exists today
 
-- `cds_new`, `cds_to_host`, `cds_free`: device arrays with a device arena for data and a host arena for metadata.
-- `cds_new_rand`, `cds_new_tmp`: arrays derived from a root, freed with it.
-- `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. The caller owns all four arrays, so parameters already outlive batches when each is created with its own `cds_new`.
-
-One decision must change before inference is possible: parameters and activations need separate roots so a model's hundreds of weight arrays share one allocation and activations can be reset per token. Stage 1 adds the parameter root.
+- `cds_new(bytes)`: a root that owns a device arena for data and a host arena for metadata, and holds no data itself.
+- `cds_array(root, shape, dim, type, data)`: an array created inside a root, released with it.
+- `cds_new_rand`: internal, an array inside a root filled with uniform random values.
+- `cds_to_host`, `cds_free`, `cds_count`, `cds_data_at`.
+- `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. `main.cu` shows the two-root pattern: parameters in one root, activations in another.
 
 ## Stage 1: memory and plumbing
 
 | Function | Does | Check |
 |---|---|---|
-| `cds_new_root(size_t bytes)` | An empty root array whose arenas outlive any batch. Model weights and the KV cache live here. | Allocate, derive, free, sanitizer reports no leaks. |
-| `cds_checkpoint(root)`, `cds_restore(root, cp)` | Wrap `arena_checkpoint` and `arena_restore` on both arenas. Called once per generated token so activations are reused instead of growing. | Derive after restore returns the same device address. |
+| `cds_checkpoint(root)`, `cds_restore(root, cp)` | Wrap `arena_checkpoint` and `arena_restore` on both arenas of the activation root. Called once per generated token so activations are reused instead of growing. | `cds_array` after restore returns the same device address. |
 | `cds_view(root, src, shape, dim)` | A new `Cds` over existing device memory with a different shape. No copy. Needed for splitting heads and flattening batch dims. | Same `data` pointer, new strides. |
 | `cds_copy(dst, src)` | Device to device copy of `capacity` bytes. | Round trip through host matches. |
 | `cds_fill(dst, value)` | Fill with a scalar. One thread per element, the first kernel you write yourself. | Host readback. |

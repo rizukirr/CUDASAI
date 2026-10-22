@@ -47,11 +47,10 @@ bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type) {
   return true;
 }
 
-// Allocate the struct from the root's host arena and the data region from
-// its device arena. Nothing here needs freeing: both go away with the root.
-static Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
-                            CdsType type) {
+Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
+                     CdsType type) {
   assert(root != nullptr);
+  assert(root->owner);
 
   Cds *self = (Cds *)arena_alloc(root->host, sizeof(Cds), alignof(Cds));
   if (!self)
@@ -92,15 +91,5 @@ Cds *cds_new_rand(const Cds *root, const size_t *shape, size_t dim,
   CUDA_CHECK(
       cudaMemcpy(self->data, staging, self->capacity, cudaMemcpyHostToDevice));
   free(staging);
-  return self;
-}
-
-Cds *cds_new_tmp(const Cds *root, const size_t *shape, size_t dim,
-                 CdsType type) {
-  Cds *self = cds_new_derived(root, shape, dim, type);
-  if (!self)
-    return nullptr;
-
-  CUDA_CHECK(cudaMemset(self->data, 0, self->capacity));
   return self;
 }

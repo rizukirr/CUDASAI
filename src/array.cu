@@ -3,27 +3,18 @@
 #include "_array.h"
 #include <assert.h>
 
-Cds *cds_new(const size_t *shape, size_t dim, CdsType type, const void *data) {
-  assert(shape != nullptr);
-
-  Cds *self = (Cds *)malloc(sizeof(Cds));
+Cds *cds_new(size_t device_bytes) {
+  Cds *self = (Cds *)calloc(1, sizeof(Cds));
   if (!self)
     return nullptr;
 
-  if (!cds_init_meta(self, shape, dim, type)) {
-    free(self);
-    return nullptr;
-  }
-
-  // Room for the array itself plus one more of the same size, so a layer
-  // built on this input can allocate its output from the same arena.
-  self->arena = arena_create(self->capacity * 2);
+  self->arena = arena_create(device_bytes);
   if (!self->arena) {
     free(self);
     return nullptr;
   }
 
-  // Structs of arrays derived from this one live here and die with it.
+  // Structs of arrays created inside this root live here and die with it.
   self->host = arena_create_with(16 * sizeof(Cds), arena_host_malloc,
                                  arena_host_free);
   if (!self->host) {
@@ -31,13 +22,16 @@ Cds *cds_new(const size_t *shape, size_t dim, CdsType type, const void *data) {
     free(self);
     return nullptr;
   }
-  self->owner = true;
 
-  self->data = arena_alloc(self->arena, self->capacity, cds_alignof[type]);
-  if (!self->data) {
-    cds_free(self);
+  self->owner = true;
+  return self;
+}
+
+Cds *cds_array(Cds *root, const size_t *shape, size_t dim, CdsType type,
+               const void *data) {
+  Cds *self = cds_new_derived(root, shape, dim, type);
+  if (!self)
     return nullptr;
-  }
 
   if (data == nullptr)
     CUDA_CHECK(cudaMemset(self->data, 0, self->capacity));
@@ -56,6 +50,7 @@ __host__ __device__ void *cds_data_at(const Cds *self, size_t index) {
 
 void cds_to_host(const Cds *self, void *dst) {
   assert(self != nullptr);
+  assert(self->data != nullptr && "a root holds no data");
   assert(dst != nullptr);
   CUDA_CHECK(
       cudaMemcpy(dst, self->data, self->capacity, cudaMemcpyDeviceToHost));

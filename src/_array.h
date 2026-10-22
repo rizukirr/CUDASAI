@@ -51,20 +51,20 @@ void random_fill_float64(double *data, size_t count, double low, double high);
 bool cds_init_meta(Cds *self, const size_t *shape, size_t dim, CdsType type);
 
 /**
- * Allocate a new array from the arenas of `root` and fill the data with
- * uniform random numbers in [-1/sqrt(fan_in), 1/sqrt(fan_in)] where fan_in is
- * the last dimension. The result is released by cds_free on the root.
+ * Allocate the struct from the root's host arena and the data from its device
+ * arena, leaving the data uninitialised. Nothing here needs freeing: both go
+ * away with the root.
+ */
+[[nodiscard]]
+Cds *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
+                     CdsType type);
+
+/**
+ * cds_new_derived plus a fill with uniform random numbers in
+ * [-1/sqrt(fan_in), 1/sqrt(fan_in)] where fan_in is the last dimension.
  */
 [[nodiscard]]
 Cds *cds_new_rand(const Cds *root, const size_t *shape, size_t dim,
                   CdsType type);
-
-/**
- * Allocate a new zero-filled array from the arenas of `root`. The result is
- * released by cds_free on the root.
- */
-[[nodiscard]]
-Cds *cds_new_tmp(const Cds *root, const size_t *shape, size_t dim,
-                 CdsType type);
 
 #endif // CDS_INTERNAL_H
