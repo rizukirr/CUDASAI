@@ -42,9 +42,13 @@ static constexpr size_t cds_alignof[] = {
     alignof(double),
 };
 
-void random_fill_float32(float *data, size_t count, float low, float high);
-
-void random_fill_float64(double *data, size_t count, double low, double high);
+// Host side, uniform in [low, high) from rand(). Feeds a staging buffer that
+// is then copied to the device.
+template <typename T>
+void random_fill(T *data, size_t count, T low, T high) {
+  for (size_t i = 0; i < count; i++)
+    data[i] = low + (rand() / ((T)RAND_MAX + (T)1)) * (high - low);
+}
 
 // One thread per element. Templates stay in the header so every file that
 // launches one can instantiate it for its own type.

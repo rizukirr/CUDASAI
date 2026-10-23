@@ -4,18 +4,6 @@
 #include <math.h>
 #include <string.h>
 
-void random_fill_float32(float *data, size_t count, float low, float high) {
-  for (size_t i = 0; i < count; i++) {
-    data[i] = low + (rand() / ((float)RAND_MAX + 1.0f)) * (high - low);
-  }
-}
-
-void random_fill_float64(double *data, size_t count, double low, double high) {
-  for (size_t i = 0; i < count; i++) {
-    data[i] = low + (rand() / ((double)RAND_MAX + 1.0)) * (high - low);
-  }
-}
-
 bool cds_init_meta(CdsArray *self, const size_t *shape, size_t dim,
                    CdsType type) {
   assert(self != nullptr);
