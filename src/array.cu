@@ -1,7 +1,6 @@
 #define ARENA_USE_CUDA
 #define ARENA_IMPLEMENTATION
 #include "_array.h"
-#include "_kernel.h"
 #include <assert.h>
 #include <math.h>
 
@@ -96,8 +95,6 @@ void cds_copy(CdsArray *dst, const CdsArray *src) {
   CUDA_CHECK(cudaMemcpy(dst->data, src->data, dst->capacity,
                         cudaMemcpyDeviceToDevice));
 }
-
-void cds_fill(CdsArray *dst, const void *value) { kernel_fill(dst, value); }
 
 CdsCheckpoint cds_checkpoint(const Cds *root) {
   assert(root != nullptr);

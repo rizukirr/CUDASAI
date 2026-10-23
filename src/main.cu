@@ -14,6 +14,13 @@ static void print_matrix(const char *name, const float *m, size_t rows,
 }
 
 int main(void) {
+  // One context for the whole program: handle, workspace and stream.
+  CdsContext *ctx = cds_context_new(32 << 20);
+  if (!ctx) {
+    fprintf(stderr, "cds_context_new failed\n");
+    return 1;
+  }
+
   // One root for parameters, one for activations. Only these two are freed.
   Cds *params = cds_new(1 << 20);
   Cds *acts = cds_new(1 << 20);
@@ -62,7 +69,7 @@ int main(void) {
       return 1;
     }
 
-    cds_linear(x, W, b, y);
+    cds_linear(ctx, x, W, b, y);
 
     float y_host[4][2];
     cds_to_host(y, y_host);
@@ -77,5 +84,6 @@ int main(void) {
 
   cds_free(acts);
   cds_free(params);
+  cds_context_free(ctx);
   return 0;
 }

@@ -57,11 +57,6 @@ CDS_API CdsArray *cds_view(Cds *root, const CdsArray *src, size_t offset,
                            const size_t *shape, size_t dim);
 
 /**
- * Set every element of `dst` to `*value`, read as `dst`'s dtype.
- */
-CDS_API void cds_fill(CdsArray *dst, const void *value);
-
-/**
  * Device to device copy of every element of `src` into `dst`. Both must have
  * the same count and type. Shapes may differ. The two ranges must not overlap.
  */

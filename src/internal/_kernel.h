@@ -2,8 +2,26 @@
 #define CDS_INTERNAL_KERNEL_H
 
 #include "_array.h"
+#include <cublasLt.h>
+
+#define CUBLAS_CHECK(call)                                                     \
+  do {                                                                         \
+    cublasStatus_t cds_st_ = (call);                                           \
+    if (cds_st_ != CUBLAS_STATUS_SUCCESS) {                                    \
+      fprintf(stderr, "%s:%d: cuBLASLt error %d\n", __FILE__, __LINE__,        \
+              (int)cds_st_);                                                   \
+      abort();                                                                 \
+    }                                                                          \
+  } while (0)
 
 constexpr unsigned CDS_THREAD_DEFAULT = 256;
+
+struct CdsContext {
+  cublasLtHandle_t lt;
+  void *workspace;
+  size_t workspace_size;
+  cudaStream_t stream;
+};
 
 // Blocks needed so that `count` elements each get one thread.
 inline unsigned cds_blocks_for(size_t count) {
@@ -22,8 +40,11 @@ __global__ void fill_kernel(T *data, size_t count, T value) {
 }
 
 // Host launchers. Each one picks the instantiation for the array's dtype,
-// launches on the default stream and checks the launch.
+// launches on the context's stream and checks the launch.
 
-void kernel_fill(CdsArray *dst, const void *value);
+void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
+                   const CdsArray *bias, CdsArray *y);
+
+void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
 
 #endif // CDS_INTERNAL_KERNEL_H

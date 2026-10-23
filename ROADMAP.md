@@ -20,7 +20,7 @@ The stages are in dependency order. Finish a stage, including its checks, before
 
 ## Stage 1: memory and plumbing
 
-- [ ] `CdsContext`: holds the cuBLASLt handle, a cuBLASLt workspace of 32 MB, and a CUDA stream. Every kernel launch and every cuBLASLt call takes the stream. Without it you cannot overlap anything later, and retrofitting a stream argument into forty functions is painful.
+- [x] `CdsContext`: holds the cuBLASLt handle, a cuBLASLt workspace of 32 MB, and a CUDA stream. Every kernel launch and every cuBLASLt call takes the stream. Without it you cannot overlap anything later, and retrofitting a stream argument into forty functions is painful.
 
 ## Stage 2: elementwise and reduction kernels
 
