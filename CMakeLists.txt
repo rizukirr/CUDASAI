@@ -26,14 +26,18 @@ find_package(CUDAToolkit REQUIRED)
 
 add_library(cdscore STATIC
   src/array.cu
-  src/_array.cu
-  src/tensor.cu
+  src/kernel.cu
+  src/internal/_array.cu
+  src/internal/_kernel.cu
 )
 
 target_include_directories(cdscore PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${CMAKE_CURRENT_BINARY_DIR}/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/vendor"
+)
+target_include_directories(cdscore PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/internal"
 )
 
 target_link_libraries(cdscore PUBLIC CUDA::cudart CUDA::cublasLt)

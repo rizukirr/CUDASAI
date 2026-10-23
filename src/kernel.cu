@@ -1,7 +1,7 @@
 #include <cublas_api.h>
 #define ARENA_USE_CUDA
 #include "_array.h"
-#include "tensor.h"
+#include "kernel.h"
 #include <assert.h>
 #include <cublasLt.h>
 

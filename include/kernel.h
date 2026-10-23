@@ -1,5 +1,5 @@
-#ifndef CDS_TENSOR_H
-#define CDS_TENSOR_H
+#ifndef CDS_KERNEL_H
+#define CDS_KERNEL_H
 
 #include "array.h"
 #include "export.h"
@@ -14,6 +14,6 @@
  * are created per batch.
  */
 CDS_API void cds_linear(const CdsArray *x, const CdsArray *W, const CdsArray *b,
-                CdsArray *y);
+                        CdsArray *y);
 
-#endif // CDS_TENSOR_H
+#endif // CDS_KERNEL_H

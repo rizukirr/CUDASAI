@@ -1,5 +1,5 @@
 #include "array.h"
-#include "tensor.h"
+#include "kernel.h"
 #include <stdio.h>
 #include <stdlib.h>
 
