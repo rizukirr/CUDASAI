@@ -18,6 +18,7 @@
   } while (0)
 
 constexpr size_t CDS_MAX_DIM = 8;
+constexpr size_t CDS_THREAD_DEFAULT = 256;
 
 struct Cds {
   Arena *arena; // device memory for array data
@@ -44,6 +45,15 @@ static constexpr size_t cds_alignof[] = {
 void random_fill_float32(float *data, size_t count, float low, float high);
 
 void random_fill_float64(double *data, size_t count, double low, double high);
+
+// One thread per element. Templates stay in the header so every file that
+// launches one can instantiate it for its own type.
+template <typename T>
+__global__ void fill_arr(T *data, size_t count, T value) {
+  size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
+  if (i < count)
+    data[i] = value;
+}
 
 /**
  * Fill dim, type, elem_size, count, capacity, shape and strides.

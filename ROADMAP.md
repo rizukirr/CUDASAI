@@ -13,6 +13,7 @@ The stages are in dependency order. Finish a stage, including its checks, before
 - `cds_array_rand(root, shape, dim, type)`: an array inside a root filled with uniform random values, for weights and biases.
 - `cds_view(root, src, offset, shape, dim)`: a `CdsArray` over a window of another array's device memory, no copy. For reshapes, head splits and slicing parameters out of one weight blob.
 - `cds_copy(dst, src)`: device to device copy between arrays of equal count and type.
+- `cds_fill(dst, value)`: set every element to a scalar. The first hand-written kernel, in `src/_array.h`.
 - `cds_checkpoint(root)`, `cds_restore(root, cp)`: rewind a root to a saved position so activations are reused per token instead of growing.
 - `cds_to_host`, `cds_free`, `cds_count`, `cds_data_at`.
 - `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. `main.cu` shows the two-root pattern: parameters in one root, activations in another.
@@ -21,7 +22,6 @@ The stages are in dependency order. Finish a stage, including its checks, before
 
 | Function | Does | Check |
 |---|---|---|
-| `cds_fill(dst, value)` | Fill with a scalar. One thread per element, the first kernel you write yourself. | Host readback. |
 
 Also in this stage: a `CdsContext` holding the cuBLASLt handle, a cuBLASLt workspace of 32 MB, and a CUDA stream. Every kernel launch and every cuBLASLt call takes the stream. Without it you cannot overlap anything later, and retrofitting a stream argument into forty functions is painful.
 

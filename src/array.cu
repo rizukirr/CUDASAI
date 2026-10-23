@@ -97,6 +97,26 @@ void cds_copy(CdsArray *dst, const CdsArray *src) {
                         cudaMemcpyDeviceToDevice));
 }
 
+void cds_fill(CdsArray *dst, const void *value) {
+  assert(dst != nullptr);
+  assert(value != nullptr);
+
+  const unsigned threads = CDS_THREAD_DEFAULT;
+  const unsigned blocks = (unsigned)((dst->count + threads - 1) / threads);
+  switch (dst->type) {
+  case CDS_FLOAT32:
+    fill_arr<<<blocks, threads>>>((float *)dst->data, dst->count,
+                                  *((const float *)value));
+    break;
+  case CDS_FLOAT64:
+    fill_arr<<<blocks, threads>>>((double *)dst->data, dst->count,
+                                  *((const double *)value));
+    break;
+  }
+
+  CUDA_CHECK(cudaGetLastError());
+}
+
 CdsCheckpoint cds_checkpoint(const Cds *root) {
   assert(root != nullptr);
   CdsCheckpoint cp = {arena_checkpoint(root->arena),
