@@ -11,6 +11,8 @@ The stages are in dependency order. Finish a stage, including its checks, before
 - `cds_new(bytes)`: a `Cds` root that owns a device arena for array data and a host arena for `CdsArray` structs.
 - `cds_array(root, shape, dim, type, data)`: a `CdsArray` created inside a root, released with it.
 - `cds_array_rand(root, shape, dim, type)`: an array inside a root filled with uniform random values, for weights and biases.
+- `cds_view(root, src, offset, shape, dim)`: a `CdsArray` over a window of another array's device memory, no copy. For reshapes, head splits and slicing parameters out of one weight blob.
+- `cds_copy(dst, src)`: device to device copy between arrays of equal count and type.
 - `cds_checkpoint(root)`, `cds_restore(root, cp)`: rewind a root to a saved position so activations are reused per token instead of growing.
 - `cds_to_host`, `cds_free`, `cds_count`, `cds_data_at`.
 - `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. `main.cu` shows the two-root pattern: parameters in one root, activations in another.
@@ -19,8 +21,6 @@ The stages are in dependency order. Finish a stage, including its checks, before
 
 | Function | Does | Check |
 |---|---|---|
-| `cds_view(root, src, shape, dim)` | A new `CdsArray` over existing device memory with a different shape. No copy. Needed for splitting heads and flattening batch dims. | Same `data` pointer, new strides. |
-| `cds_copy(dst, src)` | Device to device copy of `capacity` bytes. | Round trip through host matches. |
 | `cds_fill(dst, value)` | Fill with a scalar. One thread per element, the first kernel you write yourself. | Host readback. |
 
 Also in this stage: a `CdsContext` holding the cuBLASLt handle, a cuBLASLt workspace of 32 MB, and a CUDA stream. Every kernel launch and every cuBLASLt call takes the stream. Without it you cannot overlap anything later, and retrofitting a stream argument into forty functions is painful.

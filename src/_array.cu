@@ -45,8 +45,8 @@ bool cds_init_meta(CdsArray *self, const size_t *shape, size_t dim,
   return true;
 }
 
-CdsArray *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
-                          CdsType type) {
+CdsArray *cds_new_struct(const Cds *root, const size_t *shape, size_t dim,
+                         CdsType type) {
   assert(root != nullptr);
 
   CdsArray *self =
@@ -55,6 +55,14 @@ CdsArray *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
     return nullptr;
 
   if (!cds_init_meta(self, shape, dim, type))
+    return nullptr;
+  return self;
+}
+
+CdsArray *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,
+                          CdsType type) {
+  CdsArray *self = cds_new_struct(root, shape, dim, type);
+  if (!self)
     return nullptr;
 
   self->data = arena_alloc(root->arena, self->capacity, cds_alignof[type]);

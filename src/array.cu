@@ -48,7 +48,7 @@ CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
   if (!self)
     return nullptr;
 
-  void *staging = malloc(self->capacity);
+  void *staging = ARENA_MALLOC(self->capacity);
   if (!staging)
     return nullptr;
 
@@ -65,8 +65,36 @@ CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
 
   CUDA_CHECK(
       cudaMemcpy(self->data, staging, self->capacity, cudaMemcpyHostToDevice));
-  free(staging);
+  ARENA_FREE(staging);
   return self;
+}
+
+CdsArray *cds_view(Cds *root, const CdsArray *src, size_t offset,
+                   const size_t *shape, size_t dim) {
+  assert(src != nullptr);
+
+  CdsArray *self = cds_new_struct(root, shape, dim, src->type);
+  if (!self)
+    return nullptr;
+
+  assert(offset + self->count <= src->count && "view runs past the source");
+  self->data = cds_data_at(src, offset);
+  return self;
+}
+
+void cds_copy(CdsArray *dst, const CdsArray *src) {
+  assert(dst != nullptr);
+  assert(src != nullptr);
+  assert(dst->count == src->count && "copy count mismatch");
+  assert(dst->type == src->type && "copy type mismatch");
+
+  const unsigned char *d = (const unsigned char *)dst->data;
+  const unsigned char *s = (const unsigned char *)src->data;
+  assert((d + dst->capacity <= s || s + src->capacity <= d) &&
+         "copy ranges overlap");
+
+  CUDA_CHECK(cudaMemcpy(dst->data, src->data, dst->capacity,
+                        cudaMemcpyDeviceToDevice));
 }
 
 CdsCheckpoint cds_checkpoint(const Cds *root) {
@@ -84,7 +112,9 @@ void cds_restore(Cds *root, CdsCheckpoint cp) {
   arena_restore(root->host, cp.host);
 }
 
-size_t cds_count(const CdsArray *self) { return self->count; }
+__host__ __device__ size_t cds_count(const CdsArray *self) {
+  return self->count;
+}
 
 __host__ __device__ void *cds_data_at(const CdsArray *self, size_t index) {
   return (unsigned char *)self->data + self->elem_size * index;

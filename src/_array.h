@@ -54,9 +54,16 @@ bool cds_init_meta(CdsArray *self, const size_t *shape, size_t dim,
                    CdsType type);
 
 /**
- * Allocate the struct from the root's host arena and the data from its device
- * arena, leaving the data uninitialised. Nothing here needs freeing: both go
- * away with the root.
+ * Allocate a CdsArray struct from the root's host arena and fill its metadata.
+ * `data` is left null for the caller to point somewhere.
+ */
+[[nodiscard]]
+CdsArray *cds_new_struct(const Cds *root, const size_t *shape, size_t dim,
+                         CdsType type);
+
+/**
+ * cds_new_struct plus data from the root's device arena, uninitialised.
+ * Nothing here needs freeing: both go away with the root.
  */
 [[nodiscard]]
 CdsArray *cds_new_derived(const Cds *root, const size_t *shape, size_t dim,

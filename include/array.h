@@ -46,6 +46,23 @@ CDS_API CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
                             CdsType type, const void *data);
 
 /**
+ * A new array over the device memory of `src`, starting `offset` elements in
+ * and reinterpreted as `shape`. No device memory is allocated and no data is
+ * copied: writing through the view writes `src`. The window must fit, so
+ * offset + count(shape) <= count(src). The view lives in `root`, so it is
+ * reclaimed with `root`, not with `src`.
+ */
+[[nodiscard]]
+CDS_API CdsArray *cds_view(Cds *root, const CdsArray *src, size_t offset,
+                           const size_t *shape, size_t dim);
+
+/**
+ * Device to device copy of every element of `src` into `dst`. Both must have
+ * the same count and type. Shapes may differ. The two ranges must not overlap.
+ */
+CDS_API void cds_copy(CdsArray *dst, const CdsArray *src);
+
+/**
  * Create an array inside `root` filled with uniform random values in
  * [-1/sqrt(fan_in), 1/sqrt(fan_in)], where fan_in is the last dimension of
  * `shape`. This is the PyTorch default initialisation for linear weights.
@@ -71,7 +88,7 @@ CDS_API CdsCheckpoint cds_checkpoint(const Cds *root);
 CDS_API void cds_restore(Cds *root, CdsCheckpoint cp);
 
 [[nodiscard]]
-CDS_API size_t cds_count(const CdsArray *self);
+CDS_API __host__ __device__ size_t cds_count(const CdsArray *self);
 
 /**
  * Device address of element `index` in row-major order. The returned pointer
