@@ -1,4 +1,4 @@
-// CPU: c++ -std=c++11 tests/arena_test.cpp -o /tmp/arena-test && /tmp/arena-test
+// CPU: c++ -std=c++11 tests/test_arena.cpp -o /tmp/arena-test && /tmp/arena-test
 // Mock CUDA: add -DARENA_USE_CUDA -Itests/cuda_mock to the command above.
 #ifdef NDEBUG
 #undef NDEBUG

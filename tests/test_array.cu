@@ -7,14 +7,14 @@ template <typename T> void test_array(Cds *root) {
   CdsArray *array = cds_array(root, shape, 2, dtype<T>(), values.data());
   CHECK(array);
   expect_values(array, values);
-  auto *base = static_cast<unsigned char *>(cds_data_at(array, 0));
-  CHECK(base);
-  for (size_t i = 0; i < values.size(); ++i)
-    CHECK(cds_data_at(array, i) == base + i * sizeof(T));
 
   // Metadata must outlive the caller's shape buffer.
   shape[0] = 99;
-  CHECK(cds_count(array) == 6);
+  CdsArrayMeta meta{};
+  cds_to_meta(array, &meta);
+  CHECK(meta.count == 6);
+  CHECK(meta.dim == 2);
+  CHECK(meta.shape[0] == 2 && meta.shape[1] == 3);
   const size_t singleton[] = {1};
   CdsArray *zero = cds_array(root, singleton, 1, dtype<T>(), nullptr);
   CHECK(zero);

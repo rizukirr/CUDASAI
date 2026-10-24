@@ -17,8 +17,6 @@
     }                                                                          \
   } while (0)
 
-constexpr size_t CDS_MAX_DIM = 8;
-
 struct Cds {
   Arena *arena; // device memory for array data
   Arena *host;  // host memory for CdsArray structs

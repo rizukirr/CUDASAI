@@ -8,6 +8,8 @@ template <typename T> void run(const char *name) {
   CHECK(root);
   if (std::strcmp(name, "array") == 0)
     test_array<T>(root);
+  else if (std::strcmp(name, "cds_to_meta") == 0)
+    test_cds_to_meta<T>(root);
   else if (std::strcmp(name, "view") == 0)
     test_view<T>(root);
   else if (std::strcmp(name, "copy") == 0)

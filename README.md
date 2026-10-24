@@ -17,10 +17,10 @@ Tiny LLM inference on CUDA, written from scratch as a learning project. The goal
 ```
 cmake -B build
 cmake --build build
-./build/bin/cudasai
+./build/bin/example_linear
 ```
 
-The example in `src/main.cu` creates a random 3 to 2 linear layer, then runs three batches through it. Activations are rewound between batches with a checkpoint, so the loop reuses the same device memory every step.
+The example in `example/linear.cu` creates a random 3 to 2 linear layer, then runs three batches through it. Activations are rewound between batches with a checkpoint, so the loop reuses the same device memory every step.
 
 ## License
 

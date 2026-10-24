@@ -42,45 +42,47 @@ target_include_directories(cdscore PRIVATE
 
 target_link_libraries(cdscore PUBLIC CUDA::cudart CUDA::cublasLt)
 
-# cds_data_at is __host__ __device__ and called from kernels in other
-# translation units, which needs relocatable device code.
 set_target_properties(cdscore PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_executable(cudasai src/main.cu)
-target_link_libraries(cudasai PRIVATE cdscore)
+add_subdirectory(example)
 
 include(CTest)
 if(BUILD_TESTING)
-  add_executable(arena_test tests/arena_test.cpp)
+  add_executable(arena_test tests/test_arena.cpp)
   add_test(NAME arena.cpu COMMAND arena_test)
 
-  add_executable(arena_cuda_mock_test tests/arena_test.cpp)
+  add_executable(arena_cuda_mock_test tests/test_arena.cpp)
   target_compile_definitions(arena_cuda_mock_test PRIVATE ARENA_USE_CUDA)
   target_include_directories(arena_cuda_mock_test PRIVATE tests/cuda_mock)
   add_test(NAME arena.cuda_mock COMMAND arena_cuda_mock_test)
 
-  add_library(arena_cuda_declaration_test OBJECT tests/arena_cuda_declaration_test.cpp)
-  target_include_directories(arena_cuda_declaration_test PRIVATE tests/cuda_mock)
+  add_library(arena_cuda_declaration_test OBJECT
+    tests/test_arena_cuda_declaration.cpp)
+  target_include_directories(arena_cuda_declaration_test PRIVATE
+    tests/cuda_mock)
 
   add_executable(public_api_test
-    tests/api_test_main.cu
-    tests/host_test.cu
-    tests/array_test.cu
-    tests/view_test.cu
-    tests/copy_test.cu
-    tests/random_test.cu
-    tests/checkpoint_test.cu
-    tests/context_test.cu
-    tests/fill_test.cu
-    tests/add_test.cu
-    tests/linear_test.cu
+    tests/test_api_main.cu
+    tests/test_host.cu
+    tests/test_array.cu
+    tests/test_cds_to_meta.cu
+    tests/test_view.cu
+    tests/test_copy.cu
+    tests/test_random.cu
+    tests/test_checkpoint.cu
+    tests/test_context.cu
+    tests/test_fill.cu
+    tests/test_add.cu
+    tests/test_linear.cu
   )
   target_link_libraries(public_api_test PRIVATE cdscore)
-  set_target_properties(public_api_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+  set_target_properties(public_api_test
+    PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   add_test(NAME api.host COMMAND public_api_test host)
   foreach(dtype float double)
-    foreach(case array view copy random checkpoint context fill add linear)
-      add_test(NAME api.${case}.${dtype} COMMAND public_api_test ${case} ${dtype})
+    foreach(case array cds_to_meta view copy random checkpoint context fill add linear)
+      add_test(NAME api.${case}.${dtype} COMMAND
+        public_api_test ${case} ${dtype})
       set_tests_properties(api.${case}.${dtype} PROPERTIES
         SKIP_RETURN_CODE 77 LABELS gpu TIMEOUT 60)
     endforeach()

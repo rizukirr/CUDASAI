@@ -35,7 +35,11 @@ template <typename T> constexpr CdsType dtype() {
 
 template <typename T>
 void expect_values(const CdsArray *array, const std::vector<T> &expected) {
-  CHECK(cds_count(array) == expected.size());
+  CdsArrayMeta meta{};
+  cds_to_meta(array, &meta);
+  CHECK(meta.count == expected.size());
+  CHECK(meta.elem_size == sizeof(T));
+  CHECK(meta.capacity == expected.size() * sizeof(T));
   // Operations run on a private context stream. Synchronize before readback.
   CUDA_REQUIRE(cudaDeviceSynchronize());
   std::vector<T> actual(expected.size());

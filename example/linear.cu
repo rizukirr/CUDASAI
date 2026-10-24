@@ -1,17 +1,8 @@
 #include "array.h"
+#include "helper.h"
 #include "kernel.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-static void print_matrix(const char *name, const float *m, size_t rows,
-                         size_t cols) {
-  printf("%s [%zu x %zu]\n", name, rows, cols);
-  for (size_t i = 0; i < rows; i++) {
-    for (size_t j = 0; j < cols; j++)
-      printf("%8.4f ", m[i * cols + j]);
-    printf("\n");
-  }
-}
 
 int main(void) {
   // One context for the whole program: handle, workspace and stream.
@@ -42,11 +33,20 @@ int main(void) {
     return 1;
   }
 
-  float w_host[2][3], b_host[2];
-  cds_to_host(W, w_host);
-  cds_to_host(b, b_host);
-  print_matrix("W", &w_host[0][0], out_features, in_features);
-  print_matrix("b", b_host, 1, out_features);
+  puts("W");
+  if (!print_array(W)) {
+    cds_free(acts);
+    cds_free(params);
+    cds_context_free(ctx);
+    return 1;
+  }
+  puts("b");
+  if (!print_array(b)) {
+    cds_free(acts);
+    cds_free(params);
+    cds_context_free(ctx);
+    return 1;
+  }
 
   // Feed three batches through the same layer, the way a generation loop
   // feeds one token after another. Every batch's activations are created
@@ -71,12 +71,20 @@ int main(void) {
 
     cds_linear(ctx, x, W, b, y);
 
-    float y_host[4][2];
-    cds_to_host(y, y_host);
-
-    printf("\nstep %d, x data at %p\n", step, cds_data_at(x, 0));
-    print_matrix("x", &x_host[0][0], batch, in_features);
-    print_matrix("y = x W^T + b", &y_host[0][0], batch, out_features);
+    printf("\nstep %d\nx\n", step);
+    if (!print_array(x)) {
+      cds_free(acts);
+      cds_free(params);
+      cds_context_free(ctx);
+      return 1;
+    }
+    puts("y = x W^T + b");
+    if (!print_array(y)) {
+      cds_free(acts);
+      cds_free(params);
+      cds_context_free(ctx);
+      return 1;
+    }
 
     // x and y are gone after this. The next step reuses the same bytes.
     cds_restore(acts, cp);

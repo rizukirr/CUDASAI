@@ -3,6 +3,7 @@
 #include "_array.h"
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 Cds *cds_new(size_t device_bytes) {
   Cds *self = (Cds *)ARENA_MALLOC(sizeof(Cds));
@@ -77,7 +78,7 @@ CdsArray *cds_view(Cds *root, const CdsArray *src, size_t offset,
     return nullptr;
 
   assert(offset + self->count <= src->count && "view runs past the source");
-  self->data = cds_data_at(src, offset);
+  self->data = (unsigned char *)src->data + src->elem_size * offset;
   return self;
 }
 
@@ -111,19 +112,22 @@ void cds_restore(Cds *root, CdsCheckpoint cp) {
   arena_restore(root->host, cp.host);
 }
 
-__host__ __device__ size_t cds_count(const CdsArray *self) {
-  return self->count;
-}
-
-__host__ __device__ void *cds_data_at(const CdsArray *self, size_t index) {
-  return (unsigned char *)self->data + self->elem_size * index;
-}
-
 void cds_to_host(const CdsArray *self, void *dst) {
   assert(self != nullptr);
   assert(dst != nullptr);
   CUDA_CHECK(
       cudaMemcpy(dst, self->data, self->capacity, cudaMemcpyDeviceToHost));
+}
+
+void cds_to_meta(const CdsArray *self, CdsArrayMeta *meta) {
+  assert(self != nullptr);
+  assert(meta != nullptr);
+  meta->count = self->count;
+  meta->dim = self->dim;
+  meta->capacity = self->capacity;
+  meta->elem_size = self->elem_size;
+  meta->data = self->data;
+  memcpy(meta->shape, self->shape, sizeof(size_t) * self->dim);
 }
 
 void cds_free(Cds *root) {

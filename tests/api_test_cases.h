@@ -3,6 +3,7 @@
 #include "kernel.h"
 
 template <typename T> void test_array(Cds *root);
+template <typename T> void test_cds_to_meta(Cds *root);
 template <typename T> void test_view(Cds *root);
 template <typename T> void test_copy(Cds *root);
 template <typename T> void test_random(Cds *root);

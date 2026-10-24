@@ -7,29 +7,37 @@ template <typename T> void test_checkpoint(Cds *root) {
   CdsArray *persistent = cds_array(root, shape, 1, dtype<T>(), values.data());
   CHECK(persistent);
   const CdsCheckpoint checkpoint = cds_checkpoint(root);
-  void *saved_data = nullptr;
+  CdsCheckpoint saved_position{};
   CdsArray *saved_array = nullptr;
   for (int iteration = 0; iteration < 3; ++iteration) {
     CdsArray *temp = cds_array(root, large, 1, dtype<T>(), nullptr);
     CHECK(temp);
+    const CdsCheckpoint position = cds_checkpoint(root);
     if (iteration == 0) {
-      saved_data = cds_data_at(temp, 0);
+      saved_position = position;
       saved_array = temp;
     } else {
-      CHECK(cds_data_at(temp, 0) == saved_data);
+      CHECK(position.device.block == saved_position.device.block);
+      CHECK(position.device.index == saved_position.device.index);
+      CHECK(position.host.block == saved_position.host.block);
+      CHECK(position.host.index == saved_position.host.index);
       CHECK(temp == saved_array);
     }
+    expect_values(temp, std::vector<T>(2048, 0));
     // Force the host metadata arena to grow as well as the device arena.
     for (int i = 0; i < 40; ++i)
       CHECK(cds_array(root, shape, 1, dtype<T>(), nullptr));
     cds_restore(root, checkpoint);
     expect_values(persistent, values);
   }
-  void *first_data = cds_data_at(persistent, 0);
   cds_restore(root, empty);
   CdsArray *again = cds_array(root, shape, 1, dtype<T>(), nullptr);
   CHECK(again);
-  CHECK(cds_data_at(again, 0) == first_data);
+  const CdsCheckpoint restored = cds_checkpoint(root);
+  CHECK(restored.device.block == checkpoint.device.block);
+  CHECK(restored.device.index == checkpoint.device.index);
+  CHECK(restored.host.block == checkpoint.host.block);
+  CHECK(restored.host.index == checkpoint.host.index);
   expect_values(again, std::vector<T>(4, 0));
 }
 

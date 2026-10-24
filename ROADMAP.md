@@ -15,7 +15,7 @@ The stages are in dependency order. Finish a stage, including its checks, before
 - [x] `cds_copy(dst, src)`: device to device copy between arrays of equal count and type.
 - [x] `cds_fill(dst, value)`: set every element to a scalar. The first hand-written kernel, in `src/internal/_kernel.h`.
 - [x] `cds_checkpoint(root)`, `cds_restore(root, cp)`: rewind a root to a saved position so activations are reused per token instead of growing.
-- [x] `cds_to_host`, `cds_free`, `cds_count`, `cds_data_at`.
+- [x] `cds_to_host`, `cds_free`, `cds_to_meta`.
 - [x] `cds_linear(x, W, b, y)`: `y = x · W^T + b` through cuBLASLt. Allocates nothing. `main.cu` shows the two-root pattern: parameters in one root, activations in another.
 
 ## Stage 1: memory and plumbing

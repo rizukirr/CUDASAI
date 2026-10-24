@@ -5,8 +5,16 @@
 #include "export.h"
 #include <stddef.h>
 
+constexpr size_t CDS_MAX_DIM = 8;
+
 typedef struct Cds Cds;           // a root: owns device memory
 typedef struct CdsArray CdsArray; // an array living inside a root
+
+typedef struct {
+  size_t count, dim, capacity, elem_size;
+  size_t shape[CDS_MAX_DIM];
+  void *data; // Borrowed device pointer, never dereference on the host.
+} CdsArrayMeta;
 
 // A position in a root's allocation history. A plain value: copy it, keep it,
 // restore to it as many times as you like while the root is alive.
@@ -87,22 +95,20 @@ CDS_API CdsCheckpoint cds_checkpoint(const Cds *root);
  */
 CDS_API void cds_restore(Cds *root, CdsCheckpoint cp);
 
-[[nodiscard]]
-CDS_API __host__ __device__ size_t cds_count(const CdsArray *self);
-
-/**
- * Device address of element `index` in row-major order. The returned pointer
- * must only be dereferenced in device code.
- */
-[[nodiscard]]
-CDS_API __host__ __device__ void *cds_data_at(const CdsArray *self,
-                                              size_t index);
-
 /**
  * Copy the whole array from the device into `dst`, which must hold
- * cds_count(self) * sizeof(type) bytes. Blocks until the copy completes.
+ * `capacity` bytes as reported by cds_to_meta. Blocks until the copy completes.
  */
 CDS_API void cds_to_host(const CdsArray *self, void *dst);
+
+/**
+ * Copy array metadata into `meta` on the host, without copying array data.
+ * `capacity` and `elem_size` are in bytes. Only shape[0..dim) is populated.
+ * `data` points to the array's device storage (including any view offset).
+ * It does not transfer ownership or extend the storage lifetime. Do not free
+ * it or use it after its owning root is freed or restored past its allocation.
+ */
+CDS_API void cds_to_meta(const CdsArray *self, CdsArrayMeta *meta);
 
 /**
  * Release a root together with every array created inside it. Arrays have no

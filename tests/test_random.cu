@@ -5,7 +5,9 @@ template <typename T> void test_random(Cds *root) {
   std::srand(123);
   CdsArray *first = cds_array_rand(root, shape, 2, dtype<T>());
   CHECK(first);
-  CHECK(cds_count(first) == 512);
+  CdsArrayMeta meta{};
+  cds_to_meta(first, &meta);
+  CHECK(meta.count == 512);
   std::vector<T> values(512);
   cds_to_host(first, values.data());
   bool different = false;
