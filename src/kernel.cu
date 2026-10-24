@@ -57,6 +57,24 @@ void cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
   cds_matmul_lt(ctx, x, W, b, y);
 }
 
+CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
+                     const CdsArray *b, CdsArray *dest) {
+
+  assert(ctx && a && b && dest);
+  assert(b->type == a->type && dest->type == a->type);
+  assert(a->dim == b->dim && a->dim == dest->dim);
+
+  if (a->count == 0)
+    return;
+
+  for (size_t i = 0; i < a->dim; i++) {
+    assert(a->shape[i] == b->shape[i]);
+    assert(a->shape[i] == dest->shape[i]);
+  }
+
+  cds_add_lt(ctx, a, b, dest);
+}
+
 void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   kernel_fill(ctx, dst, value);
 }

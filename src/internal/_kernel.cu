@@ -1,6 +1,9 @@
 #define ARENA_USE_CUDA
 #include "_kernel.h"
 #include <assert.h>
+#include <cublasLt.h>
+#include <cublas_api.h>
+#include <stdint.h>
 
 void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   assert(ctx != nullptr);
@@ -64,9 +67,9 @@ void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
 
   cublasLtMatmulHeuristicResult_t heur;
   int found = 0;
-  CUBLAS_CHECK(cublasLtMatmulAlgoGetHeuristic(ctx->lt, op, a_layout,
-                                              b_layout, c_layout, c_layout,
-                                              pref, 1, &heur, &found));
+  CUBLAS_CHECK(cublasLtMatmulAlgoGetHeuristic(ctx->lt, op, a_layout, b_layout,
+                                              c_layout, c_layout, pref, 1,
+                                              &heur, &found));
 
   if (found == 0) {
     fprintf(stderr, "cuBLASLt: no algorithm for M=%d N=%d K=%d\n", M, N, K);
@@ -90,4 +93,45 @@ void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
   CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(b_layout));
   CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(a_layout));
   CUBLAS_CHECK(cublasLtMatmulDescDestroy(op));
+}
+
+void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+                CdsArray *dest) {
+  assert(a->type == b->type);
+  assert(a->type == dest->type);
+
+  const uint64_t cols = a->shape[a->dim - 1];
+  const uint64_t rows = a->count / cols;
+  assert(cols <= INT64_MAX);
+
+  cublasLtMatrixLayout_t layout;
+  CUBLAS_CHECK(cublasLtMatrixLayoutCreate(
+      &layout, a->type == CDS_FLOAT32 ? CUDA_R_32F : CUDA_R_64F, rows, cols,
+      (int64_t)cols));
+
+  cublasLtOrder_t order = CUBLASLT_ORDER_ROW;
+  CUBLAS_CHECK(cublasLtMatrixLayoutSetAttribute(
+      layout, CUBLASLT_MATRIX_LAYOUT_ORDER, &order, sizeof(order)));
+
+  cublasLtMatrixTransformDesc_t transform;
+  CUBLAS_CHECK(cublasLtMatrixTransformDescCreate(
+      &transform, a->type == CDS_FLOAT32 ? CUDA_R_32F : CUDA_R_64F));
+
+  cublasOperation_t op = CUBLAS_OP_N;
+  CUBLAS_CHECK(cublasLtMatrixTransformDescSetAttribute(
+      transform, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &op, sizeof(op)));
+  CUBLAS_CHECK(cublasLtMatrixTransformDescSetAttribute(
+      transform, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSB, &op, sizeof(op)));
+
+  const float one_f = 1.0f;
+  const double one_d = 1.0;
+  const void *one =
+      a->type == CDS_FLOAT32 ? (const void *)&one_f : (const void *)&one_d;
+
+  CUBLAS_CHECK(cublasLtMatrixTransform(ctx->lt, transform, one, a->data, layout,
+                                       one, b->data, layout, dest->data, layout,
+                                       ctx->stream));
+
+  CUBLAS_CHECK(cublasLtMatrixTransformDescDestroy(transform));
+  CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layout));
 }

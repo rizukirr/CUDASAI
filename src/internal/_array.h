@@ -43,12 +43,10 @@ static constexpr size_t cds_alignof[] = {
 
 // Host side, uniform in [low, high) from rand(). Feeds a staging buffer that
 // is then copied to the device.
-template <typename T>
-void random_fill(T *data, size_t count, T low, T high) {
+template <typename T> void random_fill(T *data, size_t count, T low, T high) {
   for (size_t i = 0; i < count; i++)
     data[i] = low + (rand() / ((T)RAND_MAX + (T)1)) * (high - low);
 }
-
 
 /**
  * Fill dim, type, elem_size, count, capacity, shape and strides.

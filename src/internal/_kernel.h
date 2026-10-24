@@ -45,6 +45,9 @@ __global__ void fill_kernel(T *data, size_t count, T value) {
 void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
                    const CdsArray *bias, CdsArray *y);
 
+void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+                CdsArray *dest);
+
 void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
 
 #endif // CDS_INTERNAL_KERNEL_H

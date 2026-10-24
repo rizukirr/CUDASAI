@@ -41,4 +41,17 @@ CDS_API void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
 CDS_API void cds_linear(const CdsContext *ctx, const CdsArray *x,
                         const CdsArray *W, const CdsArray *b, CdsArray *y);
 
+/**
+ * Elementwise dest = a + b through cuBLASLt, without broadcasting.
+ * All arrays must have identical shapes and types. The caller allocates
+ * dest, whose device memory must not overlap either input, including views.
+ * An empty input performs no work.
+ *
+ * Queues work on ctx's stream without waiting for completion. Keep the
+ * arrays alive until that work finishes and synchronize the stream before
+ * reading the result from the host or using it on another stream.
+ */
+CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
+                     const CdsArray *b, CdsArray *dest);
+
 #endif // CDS_KERNEL_H
