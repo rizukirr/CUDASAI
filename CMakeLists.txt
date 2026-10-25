@@ -73,6 +73,7 @@ if(BUILD_TESTING)
     tests/test_context.cu
     tests/test_fill.cu
     tests/test_add.cu
+    tests/test_scale.cu
     tests/test_linear.cu
   )
   target_link_libraries(public_api_test PRIVATE cdscore)
@@ -80,7 +81,18 @@ if(BUILD_TESTING)
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   add_test(NAME api.host COMMAND public_api_test host)
   foreach(dtype float double)
-    foreach(case array cds_to_meta view copy random checkpoint context fill add linear)
+    foreach(case
+        array
+        cds_to_meta
+        view
+        copy
+        random
+        checkpoint
+        context
+        fill
+        add
+        scale
+        linear)
       add_test(NAME api.${case}.${dtype} COMMAND
         public_api_test ${case} ${dtype})
       set_tests_properties(api.${case}.${dtype} PROPERTIES

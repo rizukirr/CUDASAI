@@ -1,9 +1,32 @@
 #define ARENA_USE_CUDA
+#include "_array.h"
 #include "_kernel.h"
 #include <assert.h>
 #include <cublasLt.h>
 #include <cublas_api.h>
 #include <stdint.h>
+
+constexpr cudaDataType CDS_CUDA_TYPE(CdsType type) {
+  switch (type) {
+  case CDS_FLOAT32:
+    return CUDA_R_32F;
+  case CDS_FLOAT64:
+    return CUDA_R_64F;
+  default:
+    abort();
+  }
+}
+
+constexpr cublasComputeType_t CDS_COMPUTE_TYPE(CdsType type) {
+  switch (type) {
+  case CDS_FLOAT32:
+    return CUBLAS_COMPUTE_32F;
+  case CDS_FLOAT64:
+    return CUBLAS_COMPUTE_64F;
+  default:
+    abort();
+  }
+}
 
 void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   assert(ctx != nullptr);
@@ -32,10 +55,9 @@ void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
   const int M = (int)((int)x->count / K);
   const int N = (int)w->shape[0];
 
-  cudaDataType dtype = x->type == CDS_FLOAT32 ? CUDA_R_32F : CUDA_R_64F;
-  cublasComputeType_t ctype =
-      x->type == CDS_FLOAT32 ? CUBLAS_COMPUTE_32F : CUBLAS_COMPUTE_64F;
-  cudaDataType scale_type = x->type == CDS_FLOAT32 ? CUDA_R_32F : CUDA_R_64F;
+  cudaDataType dtype = CDS_CUDA_TYPE(x->type);
+  cublasComputeType_t ctype = CDS_COMPUTE_TYPE(x->type);
+  cudaDataType scale_type = CDS_CUDA_TYPE(x->type);
 
   cublasLtMatmulDesc_t op;
   CUBLAS_CHECK(cublasLtMatmulDescCreate(&op, ctype, scale_type));
@@ -105,17 +127,16 @@ void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
   assert(cols <= INT64_MAX);
 
   cublasLtMatrixLayout_t layout;
-  CUBLAS_CHECK(cublasLtMatrixLayoutCreate(
-      &layout, a->type == CDS_FLOAT32 ? CUDA_R_32F : CUDA_R_64F, rows, cols,
-      (int64_t)cols));
+  CUBLAS_CHECK(cublasLtMatrixLayoutCreate(&layout, CDS_CUDA_TYPE(a->type), rows,
+                                          cols, (int64_t)cols));
 
   cublasLtOrder_t order = CUBLASLT_ORDER_ROW;
   CUBLAS_CHECK(cublasLtMatrixLayoutSetAttribute(
       layout, CUBLASLT_MATRIX_LAYOUT_ORDER, &order, sizeof(order)));
 
   cublasLtMatrixTransformDesc_t transform;
-  CUBLAS_CHECK(cublasLtMatrixTransformDescCreate(
-      &transform, a->type == CDS_FLOAT32 ? CUDA_R_32F : CUDA_R_64F));
+  CUBLAS_CHECK(
+      cublasLtMatrixTransformDescCreate(&transform, CDS_CUDA_TYPE(a->type)));
 
   cublasOperation_t op = CUBLAS_OP_N;
   CUBLAS_CHECK(cublasLtMatrixTransformDescSetAttribute(
@@ -135,3 +156,44 @@ void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
   CUBLAS_CHECK(cublasLtMatrixTransformDescDestroy(transform));
   CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layout));
 }
+
+template <typename T>
+void cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,
+                  CdsArray *dest) {
+  assert(ctx != nullptr);
+
+  const uint64_t cols = a->shape[a->dim - 1];
+  const uint64_t rows = a->count / cols;
+  assert(cols <= INT64_MAX);
+
+  cublasLtMatrixLayout_t layout;
+  CUBLAS_CHECK(cublasLtMatrixLayoutCreate(&layout, CDS_CUDA_TYPE(a->type), rows,
+                                          cols, (int64_t)cols));
+
+  cublasLtOrder_t order = CUBLASLT_ORDER_ROW;
+  CUBLAS_CHECK(cublasLtMatrixLayoutSetAttribute(
+      layout, CUBLASLT_MATRIX_LAYOUT_ORDER, &order, sizeof(order)));
+
+  cublasLtMatrixTransformDesc_t transform;
+  CUBLAS_CHECK(
+      cublasLtMatrixTransformDescCreate(&transform, CDS_CUDA_TYPE(a->type)));
+
+  cublasOperation_t op = CUBLAS_OP_N;
+  CUBLAS_CHECK(cublasLtMatrixTransformDescSetAttribute(
+      transform, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &op, sizeof(op)));
+
+  const T zero{0};
+
+  CUBLAS_CHECK(cublasLtMatrixTransform(ctx->lt, transform, &b, a->data, layout,
+                                       &zero, nullptr, nullptr, dest->data,
+                                       layout, ctx->stream));
+
+  CUBLAS_CHECK(cublasLtMatrixTransformDescDestroy(transform));
+  CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layout));
+}
+
+template void cds_scale_lt<float>(const CdsContext *, const CdsArray *, float,
+                                  CdsArray *);
+
+template void cds_scale_lt<double>(const CdsContext *, const CdsArray *, double,
+                                   CdsArray *);

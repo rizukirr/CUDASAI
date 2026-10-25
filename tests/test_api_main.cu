@@ -22,6 +22,8 @@ template <typename T> void run(const char *name) {
     test_fill<T>(root, context);
   else if (std::strcmp(name, "add") == 0)
     test_add<T>(root, context);
+  else if (std::strcmp(name, "scale") == 0)
+    test_scale<T>(root, context);
   else if (std::strcmp(name, "linear") == 0)
     test_linear<T>(root, context);
   else if (std::strcmp(name, "context") == 0)

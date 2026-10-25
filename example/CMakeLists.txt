@@ -5,3 +5,4 @@ endfunction()
 
 add_cudasai_example(linear)
 add_cudasai_example(add)
+add_cudasai_example(scale)

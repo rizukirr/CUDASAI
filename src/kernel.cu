@@ -57,8 +57,8 @@ void cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
   cds_matmul_lt(ctx, x, W, b, y);
 }
 
-CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
-                     const CdsArray *b, CdsArray *dest) {
+void cds_add(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+             CdsArray *dest) {
 
   assert(ctx && a && b && dest);
   assert(b->type == a->type && dest->type == a->type);
@@ -74,6 +74,36 @@ CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
 
   cds_add_lt(ctx, a, b, dest);
 }
+
+template <typename T>
+void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
+               CdsArray *dest) {
+  assert(ctx && a && dest);
+  assert(a->type == dest->type);
+  assert(a->dim == dest->dim);
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "cds_scale requires float or double");
+
+  if constexpr (std::is_same_v<T, float>) {
+    assert(a->type == CDS_FLOAT32);
+  } else {
+    assert(a->type == CDS_FLOAT64);
+  }
+
+  if (a->count == 0)
+    return;
+
+  for (size_t i = 0; i < a->dim; i++)
+    assert(a->shape[i] == dest->shape[i]);
+
+  cds_scale_lt(ctx, a, b, dest);
+}
+
+template void cds_scale<float>(const CdsContext *ctx, const CdsArray *a,
+                               const float b, CdsArray *dest);
+
+template void cds_scale<double>(const CdsContext *ctx, const CdsArray *a,
+                                const double b, CdsArray *dest);
 
 void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   kernel_fill(ctx, dst, value);

@@ -1,7 +1,7 @@
 #ifndef CDS_INTERNAL_KERNEL_H
 #define CDS_INTERNAL_KERNEL_H
 
-#include "_array.h"
+#include "array.h"
 #include <cublasLt.h>
 
 #define CUBLAS_CHECK(call)                                                     \
@@ -47,6 +47,10 @@ void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
 
 void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
                 CdsArray *dest);
+
+template <typename T>
+void cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,
+                  CdsArray *dest);
 
 void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
 

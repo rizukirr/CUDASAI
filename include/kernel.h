@@ -54,4 +54,22 @@ CDS_API void cds_linear(const CdsContext *ctx, const CdsArray *x,
 CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
                      const CdsArray *b, CdsArray *dest);
 
+/**
+ * Computes dest[i] = a[i] * b through cuBLASLt, where b is a scalar.
+ *
+ * a and dest must have identical shapes and element types.
+ * T must be float for CDS_FLOAT32 or double for CDS_FLOAT64.
+ * The caller allocates dest. Its device memory must not overlap a's
+ * device memory, including through views.
+ * An empty input performs no work.
+ *
+ * Queues work on ctx's stream without waiting for completion.
+ * Keep the input and output device memory valid until the work finishes.
+ * Synchronize before reading the result from the host. Before using it
+ * on another stream, establish a dependency, for example with a CUDA event.
+ */
+template <typename T>
+CDS_API void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
+                       CdsArray *dest);
+
 #endif // CDS_KERNEL_H
