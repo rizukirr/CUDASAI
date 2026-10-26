@@ -42,8 +42,8 @@ __global__ void fill_kernel(T *data, size_t count, T value) {
 // Host launchers. Each one picks the instantiation for the array's dtype,
 // launches on the context's stream and checks the launch.
 
-void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
-                   const CdsArray *bias, CdsArray *y);
+void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
+                        const CdsArray *w, const CdsArray *bias, CdsArray *y);
 
 void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
                 CdsArray *dest);

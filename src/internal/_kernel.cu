@@ -8,9 +8,9 @@
 
 constexpr cudaDataType CDS_CUDA_TYPE(CdsType type) {
   switch (type) {
-  case CDS_FLOAT32:
+  case CDS_TYPE_FLOAT32:
     return CUDA_R_32F;
-  case CDS_FLOAT64:
+  case CDS_TYPE_FLOAT64:
     return CUDA_R_64F;
   default:
     abort();
@@ -19,9 +19,9 @@ constexpr cudaDataType CDS_CUDA_TYPE(CdsType type) {
 
 constexpr cublasComputeType_t CDS_COMPUTE_TYPE(CdsType type) {
   switch (type) {
-  case CDS_FLOAT32:
+  case CDS_TYPE_FLOAT32:
     return CUBLAS_COMPUTE_32F;
-  case CDS_FLOAT64:
+  case CDS_TYPE_FLOAT64:
     return CUBLAS_COMPUTE_64F;
   default:
     abort();
@@ -35,11 +35,11 @@ void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
 
   const unsigned blocks = cds_blocks_for(dst->count);
   switch (dst->type) {
-  case CDS_FLOAT32:
+  case CDS_TYPE_FLOAT32:
     fill_kernel<<<blocks, CDS_THREAD_DEFAULT, 0, ctx->stream>>>(
         (float *)dst->data, dst->count, *((const float *)value));
     break;
-  case CDS_FLOAT64:
+  case CDS_TYPE_FLOAT64:
     fill_kernel<<<blocks, CDS_THREAD_DEFAULT, 0, ctx->stream>>>(
         (double *)dst->data, dst->count, *((const double *)value));
     break;
@@ -48,8 +48,8 @@ void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   CUDA_CHECK(cudaGetLastError());
 }
 
-void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
-                   const CdsArray *bias, CdsArray *y) {
+void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
+                        const CdsArray *w, const CdsArray *bias, CdsArray *y) {
   assert(ctx != nullptr);
   const int K = (int)x->shape[x->dim - 1];
   const int M = (int)((int)x->count / K);
@@ -67,14 +67,15 @@ void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
   CUBLAS_CHECK(cublasLtMatmulDescSetAttribute(op, CUBLASLT_MATMUL_DESC_TRANSB,
                                               &n, sizeof(n)));
 
-  if (bias) {
-    cublasLtEpilogue_t epi = CUBLASLT_EPILOGUE_BIAS;
-    CUBLAS_CHECK(cublasLtMatmulDescSetAttribute(
-        op, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
+  cublasLtEpilogue_t epi =
+      bias ? CUBLASLT_EPILOGUE_GELU_BIAS : CUBLASLT_EPILOGUE_GELU;
+  CUBLAS_CHECK(cublasLtMatmulDescSetAttribute(op, CUBLASLT_MATMUL_DESC_EPILOGUE,
+                                              &epi, sizeof(epi)));
+
+  if (bias)
     CUBLAS_CHECK(
         cublasLtMatmulDescSetAttribute(op, CUBLASLT_MATMUL_DESC_BIAS_POINTER,
                                        &bias->data, sizeof(bias->data)));
-  }
 
   cublasLtMatrixLayout_t a_layout, b_layout, c_layout;
   CUBLAS_CHECK(cublasLtMatrixLayoutCreate(&a_layout, dtype, K, N, K));
@@ -101,9 +102,9 @@ void cds_matmul_lt(const CdsContext *ctx, const CdsArray *x, const CdsArray *w,
   const float alpha_f = 1.0f, beta_f = 0.0f;
   const double alpha_d = 1.0, beta_d = 0.0;
   const void *alpha =
-      x->type == CDS_FLOAT32 ? (const void *)&alpha_f : (const void *)&alpha_d;
+      x->type == CDS_TYPE_FLOAT32 ? (const void *)&alpha_f : (const void *)&alpha_d;
   const void *beta =
-      x->type == CDS_FLOAT32 ? (const void *)&beta_f : (const void *)&beta_d;
+      x->type == CDS_TYPE_FLOAT32 ? (const void *)&beta_f : (const void *)&beta_d;
 
   CUBLAS_CHECK(cublasLtMatmul(ctx->lt, op, alpha, w->data, a_layout, x->data,
                               b_layout, beta, y->data, c_layout, y->data,
@@ -147,7 +148,7 @@ void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
   const float one_f = 1.0f;
   const double one_d = 1.0;
   const void *one =
-      a->type == CDS_FLOAT32 ? (const void *)&one_f : (const void *)&one_d;
+      a->type == CDS_TYPE_FLOAT32 ? (const void *)&one_f : (const void *)&one_d;
 
   CUBLAS_CHECK(cublasLtMatrixTransform(ctx->lt, transform, one, a->data, layout,
                                        one, b->data, layout, dest->data, layout,

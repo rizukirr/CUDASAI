@@ -30,11 +30,13 @@
   } while (0)
 
 template <typename T> constexpr CdsType dtype() {
-  return sizeof(T) == sizeof(float) ? CDS_FLOAT32 : CDS_FLOAT64;
+  return sizeof(T) == sizeof(float) ? CDS_TYPE_FLOAT32 : CDS_TYPE_FLOAT64;
 }
 
 template <typename T>
-void expect_values(const CdsArray *array, const std::vector<T> &expected) {
+void expect_values(
+    const CdsArray *array, const std::vector<T> &expected,
+    double tolerance = sizeof(T) == sizeof(float) ? 1e-5 : 1e-12) {
   CdsArrayMeta meta{};
   cds_to_meta(array, &meta);
   CHECK(meta.count == expected.size());
@@ -44,7 +46,6 @@ void expect_values(const CdsArray *array, const std::vector<T> &expected) {
   CUDA_REQUIRE(cudaDeviceSynchronize());
   std::vector<T> actual(expected.size());
   cds_to_host(array, actual.data());
-  const double tolerance = sizeof(T) == sizeof(float) ? 1e-5 : 1e-12;
   for (size_t i = 0; i < expected.size(); ++i) {
     if (!std::isfinite(actual[i]) ||
         std::abs(double(actual[i]) - double(expected[i])) >

@@ -36,7 +36,7 @@ void cds_context_free(CdsContext *ctx) {
 }
 
 void cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
-                const CdsArray *b, CdsArray *y) {
+                const CdsArray *b, CdsActivation activation, CdsArray *y) {
   assert(x != nullptr);
   assert(W != nullptr);
   assert(y != nullptr);
@@ -54,7 +54,13 @@ void cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
     assert(b->count == out_features);
   }
 
-  cds_matmul_lt(ctx, x, W, b, y);
+  switch(activation) {
+    case CDS_ACTIVATION_GELU:
+      cds_matmul_gelu_lt(ctx, x, W, b, y);
+      break;
+    default:
+      abort();
+  }
 }
 
 void cds_add(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
@@ -85,9 +91,9 @@ void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
                 "cds_scale requires float or double");
 
   if constexpr (std::is_same_v<T, float>) {
-    assert(a->type == CDS_FLOAT32);
+    assert(a->type == CDS_TYPE_FLOAT32);
   } else {
-    assert(a->type == CDS_FLOAT64);
+    assert(a->type == CDS_TYPE_FLOAT64);
   }
 
   if (a->count == 0)

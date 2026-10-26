@@ -4,6 +4,8 @@
 #include "array.h"
 #include "export.h"
 
+typedef enum { CDS_ACTIVATION_GELU } CdsActivation;
+
 /**
  * GPU state shared by every operation: the cuBLASLt handle, a device
  * workspace cuBLASLt may use as scratch, and the stream all work runs on.
@@ -39,7 +41,8 @@ CDS_API void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
  * are created per batch.
  */
 CDS_API void cds_linear(const CdsContext *ctx, const CdsArray *x,
-                        const CdsArray *W, const CdsArray *b, CdsArray *y);
+                        const CdsArray *W, const CdsArray *b,
+                        CdsActivation activation, CdsArray *y);
 
 /**
  * Elementwise dest = a + b through cuBLASLt, without broadcasting.
@@ -58,7 +61,7 @@ CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
  * Computes dest[i] = a[i] * b through cuBLASLt, where b is a scalar.
  *
  * a and dest must have identical shapes and element types.
- * T must be float for CDS_FLOAT32 or double for CDS_FLOAT64.
+ * T must be float for CDS_TYPE_FLOAT32 or double for CDS_TYPE_FLOAT64.
  * The caller allocates dest. Its device memory must not overlap a's
  * device memory, including through views.
  * An empty input performs no work.

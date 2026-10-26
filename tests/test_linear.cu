@@ -26,16 +26,22 @@ template <typename T> void test_linear(Cds *root, CdsContext *context) {
       // A nonzero destination catches an incorrect accumulation coefficient.
       T sentinel = T(99);
       cds_fill(context, y, &sentinel);
-      cds_linear(context, x, w, with_bias ? b : nullptr, y);
+      cds_linear(context, x, w, with_bias ? b : nullptr, CDS_ACTIVATION_GELU, y);
       std::vector<T> expected(batch * 4);
       for (size_t row = 0; row < batch; ++row)
         for (size_t out = 0; out < 4; ++out) {
           T value = with_bias ? bias[out] : T(0);
           for (size_t in = 0; in < 3; ++in)
             value += input[row * 3 + in] * weights[out * 3 + in];
-          expected[row * 4 + out] = value;
+        const double z = double(value);
+        expected[row * 4 + out] = T(
+            0.5 * z *
+            (1.0 + std::tanh(
+                std::sqrt(2.0 / 3.14159265358979323846) *
+                (z + 0.044715 * z * z * z))));
         }
-      expect_values(y, expected);
+      // Allow rounding differences in cuBLASLt's GELU approximation.
+      expect_values(y, expected, sizeof(T) == sizeof(float) ? 1e-5 : 1e-9);
     }
     expect_values(x, input);
   }

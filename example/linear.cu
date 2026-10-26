@@ -26,8 +26,8 @@ int main(void) {
   srand(42);
   size_t w_shape[] = {out_features, in_features};
   size_t b_shape[] = {out_features};
-  CdsArray *W = cds_array_rand(params, w_shape, 2, CDS_FLOAT32);
-  CdsArray *b = cds_array_rand(params, b_shape, 1, CDS_FLOAT32);
+  CdsArray *W = cds_array_rand(params, w_shape, 2, CDS_TYPE_FLOAT32);
+  CdsArray *b = cds_array_rand(params, b_shape, 1, CDS_TYPE_FLOAT32);
   if (!W || !b) {
     fprintf(stderr, "cds_array_rand failed\n");
     return 1;
@@ -62,14 +62,14 @@ int main(void) {
       for (size_t j = 0; j < in_features; j++)
         x_host[i][j] = (float)(step * 100 + i * in_features + j);
 
-    CdsArray *x = cds_array(acts, x_shape, 2, CDS_FLOAT32, x_host);
-    CdsArray *y = cds_array(acts, y_shape, 2, CDS_FLOAT32, nullptr);
+    CdsArray *x = cds_array(acts, x_shape, 2, CDS_TYPE_FLOAT32, x_host);
+    CdsArray *y = cds_array(acts, y_shape, 2, CDS_TYPE_FLOAT32, nullptr);
     if (!x || !y) {
       fprintf(stderr, "cds_array failed\n");
       return 1;
     }
 
-    cds_linear(ctx, x, W, b, y);
+    cds_linear(ctx, x, W, b, CDS_ACTIVATION_GELU, y);
 
     printf("\nstep %d\nx\n", step);
     if (!print_array(x)) {
