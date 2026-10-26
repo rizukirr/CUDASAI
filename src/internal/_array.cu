@@ -10,7 +10,7 @@ bool cds_init_meta(CdsArray *self, const size_t *shape, size_t dim,
   assert(shape != nullptr);
   assert(dim > 0);
   assert(dim <= CDS_MAX_DIM);
-  assert(type == CDS_FLOAT32 || type == CDS_FLOAT64);
+  assert(type == CDS_TYPE_FLOAT32 || type == CDS_TYPE_FLOAT64);
 
   self->dim = dim;
   self->type = type;

@@ -24,8 +24,8 @@ typedef struct CdsCheckpoint {
 } CdsCheckpoint;
 
 typedef enum {
-  CDS_FLOAT32,
-  CDS_FLOAT64,
+  CDS_TYPE_FLOAT32,
+  CDS_TYPE_FLOAT64,
 } CdsType;
 
 // Indexed by CdsType, so the order must match the enum.

@@ -17,9 +17,9 @@ int main(void) {
   size_t b_shape[] = {2, 2};
   float b_data[2][2] = {{1.0f, 1.0f}, {2.0f, 2.0f}};
 
-  CdsArray *a = cds_array(cds, a_shape, 2, CDS_FLOAT32, a_data);
-  CdsArray *b = cds_array(cds, b_shape, 2, CDS_FLOAT32, b_data);
-  CdsArray *dest = cds_array(cds, a_shape, 2, CDS_FLOAT32, nullptr);
+  CdsArray *a = cds_array(cds, a_shape, 2, CDS_TYPE_FLOAT32, a_data);
+  CdsArray *b = cds_array(cds, b_shape, 2, CDS_TYPE_FLOAT32, b_data);
+  CdsArray *dest = cds_array(cds, a_shape, 2, CDS_TYPE_FLOAT32, nullptr);
 
   cds_add(ctx, a, b, dest);
 

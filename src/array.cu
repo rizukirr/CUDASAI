@@ -55,10 +55,10 @@ CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
 
   double bound = 1.0 / sqrt((double)self->shape[self->dim - 1]);
   switch (self->type) {
-  case CDS_FLOAT32:
+  case CDS_TYPE_FLOAT32:
     random_fill((float *)staging, self->count, (float)-bound, (float)bound);
     break;
-  case CDS_FLOAT64:
+  case CDS_TYPE_FLOAT64:
     random_fill((double *)staging, self->count, -bound, bound);
     break;
   }
