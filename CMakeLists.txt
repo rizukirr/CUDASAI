@@ -24,12 +24,18 @@ configure_file(
 
 find_package(CUDAToolkit REQUIRED)
 
-add_library(cdscore STATIC
+option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+
+add_library(cdscore 
   src/array.cu
   src/kernel.cu
   src/internal/_array.cu
   src/internal/_kernel.cu
 )
+
+if(NOT BUILD_SHARED_LIBS)
+  target_compile_definitions(cdscore PUBLIC CDS_STATIC_DEFINE)
+endif()
 
 target_include_directories(cdscore PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"

@@ -3,6 +3,6 @@ function(add_cudasai_example name)
   target_link_libraries(example_${name} PRIVATE cdscore)
 endfunction()
 
-add_cudasai_example(linear)
+add_cudasai_example(linear_gelu)
 add_cudasai_example(add)
 add_cudasai_example(scale)
