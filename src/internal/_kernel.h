@@ -2,6 +2,9 @@
 #define CDS_INTERNAL_KERNEL_H
 
 #include "array.h"
+#include "kernel.h"
+#include <climits>
+#include <cmath>
 #include <cublasLt.h>
 
 #define CUBLAS_CHECK(call)                                                     \
@@ -39,11 +42,15 @@ __global__ void fill_kernel(T *data, size_t count, T value) {
     data[i] = value;
 }
 
+template <typename T>
+__global__ void cds_softmax_lt(const T *x, T *y, size_t cols);
+
 // Host launchers. Each one picks the instantiation for the array's dtype,
 // launches on the context's stream and checks the launch.
 
-void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
-                        const CdsArray *w, const CdsArray *bias, CdsArray *y);
+void cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
+                   const CdsArray *x, const CdsArray *w, const CdsArray *bias,
+                   CdsArray *y);
 
 void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
                 CdsArray *dest);

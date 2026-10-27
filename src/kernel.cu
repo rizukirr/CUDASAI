@@ -1,6 +1,9 @@
+#include "array.h"
+#include <cstdlib>
+#include <cuda_device_runtime_api.h>
 #define ARENA_USE_CUDA
-#include "_array.h"
-#include "_kernel.h"
+#include "internal/_array.h"
+#include "internal/_kernel.h"
 #include "kernel.h"
 #include <assert.h>
 #include <cublasLt.h>
@@ -54,13 +57,44 @@ void cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
     assert(b->count == out_features);
   }
 
-  switch(activation) {
-    case CDS_ACTIVATION_GELU:
-      cds_matmul_gelu_lt(ctx, x, W, b, y);
-      break;
-    default:
-      abort();
+  cds_matmul_lt(ctx, activation, x, W, b, y);
+}
+
+void cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y) {
+  assert(ctx && x && y);
+  assert(x->dim == y->dim);
+  assert(x->type == y->type);
+  assert(x->count == y->count);
+
+  if (x->count == 0)
+    return;
+
+  for (size_t i = 0; i < x->dim; i++)
+    assert(x->shape[i] == y->shape[i]);
+
+  const size_t cols = x->shape[x->dim - 1];
+  assert(cols > 0);
+
+  const size_t rows = x->count / cols;
+  assert(rows <= INT_MAX);
+  const unsigned blocks = static_cast<unsigned>(rows);
+
+  switch (x->type) {
+  case CDS_TYPE_FLOAT32:
+    cds_softmax_lt<float>
+        <<<blocks, 32, 0, ctx->stream>>>(static_cast<const float *>(x->data),
+                                         static_cast<float *>(y->data), cols);
+    break;
+  case CDS_TYPE_FLOAT64:
+    cds_softmax_lt<double>
+        <<<blocks, 32, 0, ctx->stream>>>(static_cast<const double *>(x->data),
+                                         static_cast<double *>(y->data), cols);
+    break;
+  default:
+    abort();
   }
+
+  CUDA_CHECK(cudaGetLastError());
 }
 
 void cds_add(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
@@ -87,14 +121,12 @@ void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
   assert(ctx && a && dest);
   assert(a->type == dest->type);
   assert(a->dim == dest->dim);
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
-                "cds_scale requires float or double");
 
-  if constexpr (std::is_same_v<T, float>) {
-    assert(a->type == CDS_TYPE_FLOAT32);
-  } else {
-    assert(a->type == CDS_TYPE_FLOAT64);
-  }
+  if (a->type == CDS_TYPE_FLOAT32)
+    assert(std::is_same<T, float>());
+
+  if (a->type == CDS_TYPE_FLOAT64)
+    assert(std::is_same<T, double>());
 
   if (a->count == 0)
     return;

@@ -4,7 +4,7 @@
 #include "array.h"
 #include "export.h"
 
-typedef enum { CDS_ACTIVATION_GELU } CdsActivation;
+typedef enum { CDS_ACTIVATION_GELU, CDS_ACTIVATION_NONE } CdsActivation;
 
 /**
  * GPU state shared by every operation: the cuBLASLt handle, a device
@@ -43,6 +43,12 @@ CDS_API void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
 CDS_API void cds_linear(const CdsContext *ctx, const CdsArray *x,
                         const CdsArray *W, const CdsArray *b,
                         CdsActivation activation, CdsArray *y);
+
+/**
+ * Apply softmax over the last dimension.
+ * Input and output must have identical shapes and types.
+ */
+CDS_API void cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y);
 
 /**
  * Elementwise dest = a + b through cuBLASLt, without broadcasting.

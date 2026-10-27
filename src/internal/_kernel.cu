@@ -1,6 +1,8 @@
+#include <cmath>
 #define ARENA_USE_CUDA
 #include "_array.h"
 #include "_kernel.h"
+#include "kernel.h"
 #include <assert.h>
 #include <cublasLt.h>
 #include <cublas_api.h>
@@ -28,6 +30,18 @@ constexpr cublasComputeType_t CDS_COMPUTE_TYPE(CdsType type) {
   }
 }
 
+template <typename T> __device__ __forceinline__ T softmax_warp_max(T value) {
+  for (int offset = 16; offset > 0; offset /= 2)
+    value = fmax(value, __shfl_xor_sync(0xffffffffu, value, offset));
+  return value;
+}
+
+template <typename T> __device__ __forceinline__ T softmax_warp_sum(T value) {
+  for (int offset = 16; offset > 0; offset /= 2)
+    value += __shfl_xor_sync(0xffffffffu, value, offset);
+  return value;
+}
+
 void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   assert(ctx != nullptr);
   assert(dst != nullptr);
@@ -48,8 +62,37 @@ void kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   CUDA_CHECK(cudaGetLastError());
 }
 
-void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
-                        const CdsArray *w, const CdsArray *bias, CdsArray *y) {
+static void matmul_epilogue(cublasLtEpilogue_t *epi, bool use_bias,
+                            CdsActivation activation) {
+  assert(epi != nullptr);
+
+  cublasLtEpilogue_t default_epi;
+  if (use_bias) {
+    switch (activation) {
+    case CDS_ACTIVATION_GELU:
+      default_epi = CUBLASLT_EPILOGUE_GELU_BIAS;
+      break;
+    default:
+      default_epi = CUBLASLT_EPILOGUE_BIAS;
+      break;
+    }
+  } else {
+    switch (activation) {
+    case CDS_ACTIVATION_GELU:
+      default_epi = CUBLASLT_EPILOGUE_GELU;
+      break;
+    default:
+      default_epi = CUBLASLT_EPILOGUE_DEFAULT;
+      break;
+    }
+  }
+
+  *epi = default_epi;
+}
+
+void cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
+                   const CdsArray *x, const CdsArray *w, const CdsArray *bias,
+                   CdsArray *y) {
   assert(ctx != nullptr);
   const int K = (int)x->shape[x->dim - 1];
   const int M = (int)((int)x->count / K);
@@ -67,8 +110,9 @@ void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
   CUBLAS_CHECK(cublasLtMatmulDescSetAttribute(op, CUBLASLT_MATMUL_DESC_TRANSB,
                                               &n, sizeof(n)));
 
-  cublasLtEpilogue_t epi =
-      bias ? CUBLASLT_EPILOGUE_GELU_BIAS : CUBLASLT_EPILOGUE_GELU;
+  cublasLtEpilogue_t epi;
+  bool use_bias = bias != nullptr;
+  matmul_epilogue(&epi, use_bias, activation);
   CUBLAS_CHECK(cublasLtMatmulDescSetAttribute(op, CUBLASLT_MATMUL_DESC_EPILOGUE,
                                               &epi, sizeof(epi)));
 
@@ -101,10 +145,10 @@ void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
 
   const float alpha_f = 1.0f, beta_f = 0.0f;
   const double alpha_d = 1.0, beta_d = 0.0;
-  const void *alpha =
-      x->type == CDS_TYPE_FLOAT32 ? (const void *)&alpha_f : (const void *)&alpha_d;
-  const void *beta =
-      x->type == CDS_TYPE_FLOAT32 ? (const void *)&beta_f : (const void *)&beta_d;
+  const void *alpha = x->type == CDS_TYPE_FLOAT32 ? (const void *)&alpha_f
+                                                  : (const void *)&alpha_d;
+  const void *beta = x->type == CDS_TYPE_FLOAT32 ? (const void *)&beta_f
+                                                 : (const void *)&beta_d;
 
   CUBLAS_CHECK(cublasLtMatmul(ctx->lt, op, alpha, w->data, a_layout, x->data,
                               b_layout, beta, y->data, c_layout, y->data,
@@ -117,6 +161,38 @@ void cds_matmul_gelu_lt(const CdsContext *ctx, const CdsArray *x,
   CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(a_layout));
   CUBLAS_CHECK(cublasLtMatmulDescDestroy(op));
 }
+
+template <typename T>
+__global__ void cds_softmax_lt(const T *x, T *y, size_t cols) {
+  const size_t base = size_t(blockIdx.x) * cols;
+  const unsigned lane = threadIdx.x;
+
+  T maximum = -T(INFINITY);
+
+  for (size_t col = lane; col < cols; col += 32)
+    maximum = fmax(maximum, x[base + col]);
+
+  maximum = softmax_warp_max(maximum);
+
+  T sum = T(0);
+
+  for (size_t col = lane; col < cols; col += 32) {
+    T value = exp(x[base + col] - maximum);
+    y[base + col] = value;
+    sum += value;
+  }
+
+  sum = softmax_warp_sum(sum);
+
+  for (size_t col = lane; col < cols; col += 32)
+    y[base + col] /= sum;
+}
+
+template __global__ void cds_softmax_lt<float>(const float *x, float *y,
+                                               size_t cols);
+
+template __global__ void cds_softmax_lt<double>(const double *x, double *y,
+                                                size_t cols);
 
 void cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
                 CdsArray *dest) {
@@ -193,8 +269,8 @@ void cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,
   CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layout));
 }
 
-template void cds_scale_lt<float>(const CdsContext *, const CdsArray *, float,
-                                  CdsArray *);
+template void cds_scale_lt<float>(const CdsContext *ctx, const CdsArray *a,
+                                  const float b, CdsArray *dest);
 
-template void cds_scale_lt<double>(const CdsContext *, const CdsArray *, double,
-                                   CdsArray *);
+template void cds_scale_lt<double>(const CdsContext *ctx, const CdsArray *a,
+                                   const double b, CdsArray *dest);

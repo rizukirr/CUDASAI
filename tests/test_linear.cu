@@ -22,26 +22,33 @@ template <typename T> void test_linear(Cds *root, CdsContext *context) {
     CdsArray *y = cds_array(root, output_shape.data(), output_shape.size(),
                             dtype<T>(), nullptr);
     CHECK(x && y);
-    for (bool with_bias : {false, true}) {
-      // A nonzero destination catches an incorrect accumulation coefficient.
-      T sentinel = T(99);
-      cds_fill(context, y, &sentinel);
-      cds_linear(context, x, w, with_bias ? b : nullptr, CDS_ACTIVATION_GELU, y);
-      std::vector<T> expected(batch * 4);
-      for (size_t row = 0; row < batch; ++row)
-        for (size_t out = 0; out < 4; ++out) {
-          T value = with_bias ? bias[out] : T(0);
-          for (size_t in = 0; in < 3; ++in)
-            value += input[row * 3 + in] * weights[out * 3 + in];
-        const double z = double(value);
-        expected[row * 4 + out] = T(
-            0.5 * z *
-            (1.0 + std::tanh(
-                std::sqrt(2.0 / 3.14159265358979323846) *
-                (z + 0.044715 * z * z * z))));
-        }
-      // Allow rounding differences in cuBLASLt's GELU approximation.
-      expect_values(y, expected, sizeof(T) == sizeof(float) ? 1e-5 : 1e-9);
+    for (CdsActivation activation : {CDS_ACTIVATION_NONE, CDS_ACTIVATION_GELU}) {
+      for (bool with_bias : {false, true}) {
+        // A nonzero destination catches an incorrect accumulation coefficient.
+        T sentinel = T(99);
+        cds_fill(context, y, &sentinel);
+        cds_linear(context, x, w, with_bias ? b : nullptr, activation, y);
+        std::vector<T> expected(batch * 4);
+        for (size_t row = 0; row < batch; ++row)
+          for (size_t out = 0; out < 4; ++out) {
+            T value = with_bias ? bias[out] : T(0);
+            for (size_t in = 0; in < 3; ++in)
+              value += input[row * 3 + in] * weights[out * 3 + in];
+            if (activation == CDS_ACTIVATION_GELU) {
+              const double z = double(value);
+              value = T(0.5 * z *
+                        (1.0 + std::tanh(
+                                   std::sqrt(2.0 / 3.14159265358979323846) *
+                                   (z + 0.044715 * z * z * z))));
+            }
+            expected[row * 4 + out] = value;
+          }
+        // Allow rounding differences in cuBLASLt's GELU approximation.
+        double tolerance = sizeof(T) == sizeof(float) ? 1e-5 : 1e-12;
+        if (activation == CDS_ACTIVATION_GELU && sizeof(T) == sizeof(double))
+          tolerance = 1e-9;
+        expect_values(y, expected, tolerance);
+      }
     }
     expect_values(x, input);
   }

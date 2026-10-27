@@ -29,7 +29,7 @@ These are the kernels where you learn CUDA. Each is one or two kernels. Write th
 - [x] `cds_add(a, b, out)`: `out = a + b`. Used for residual connections. Same shape. Check: CPU loop.
 - [x] `cds_scale(a, s, out)`: `out = a * s`. Same shape. Check: CPU loop.
 - [x] `cds_gelu(a, out)`: GELU with the tanh approximation GPT-2 uses. Same shape. Check: CPU loop, tolerance 1e-5.
-- [ ] `cds_softmax_rows(a, out)`: numerically stable softmax over the last dimension: subtract the row max, exp, divide by the row sum. One block per row, warp shuffle for the reductions. Shape `[rows, cols]`. Check: rows sum to 1, matches CPU to 1e-5.
+- [x] `cds_softmax_rows(a, out)`: numerically stable softmax over the last dimension: subtract the row max, exp, divide by the row sum. One block per row, warp shuffle for the reductions. Shape `[rows, cols]`. Check: rows sum to 1, matches CPU to 1e-5.
 - [ ] `cds_layernorm(x, gamma, beta, out, eps)`: per-row mean and variance, then `gamma * (x - mean) / sqrt(var + eps) + beta`. GPT-2 uses LayerNorm. Llama uses RMSNorm, which drops the mean. Shape `[rows, d]`. Check: CPU loop, tolerance 1e-4.
 - [ ] `cds_argmax_rows(a, out_indices)`: index of the max in each row. The greedy sampler. Shape `[rows, vocab]` to `[rows]`. Check: CPU loop.
 

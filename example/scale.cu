@@ -19,7 +19,7 @@ int main(void) {
 
   size_t shape[2] = {2, 2};
   float a_data[4] = {1, 2, 2, 1};
-  CdsArray *a = cds_array(cds, shape, 2, CDS_TYPE_FLOAT32, a_data);
+  const CdsArray *a = cds_array(cds, shape, 2, CDS_TYPE_FLOAT32, a_data);
   printf("b: 2\n");
   printf("a: ");
   if (!print_array(a)) {
@@ -28,6 +28,7 @@ int main(void) {
     return 1;
   }
   CdsArray *dest = cds_array(cds, shape, 2, CDS_TYPE_FLOAT32, nullptr);
+
   cds_scale<float>(ctx, a, 2.0f, dest);
 
   printf("result:\n");

@@ -26,6 +26,8 @@ template <typename T> void run(const char *name) {
     test_scale<T>(root, context);
   else if (std::strcmp(name, "linear") == 0)
     test_linear<T>(root, context);
+  else if (std::strcmp(name, "softmax") == 0)
+    test_softmax<T>(root, context);
   else if (std::strcmp(name, "context") == 0)
     test_context<T>(root);
   else {
