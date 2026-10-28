@@ -1,5 +1,6 @@
 #define ARENA_USE_CUDA
 #include "_array.h"
+#include "array.h"
 #include <assert.h>
 #include <math.h>
 #include <string.h>

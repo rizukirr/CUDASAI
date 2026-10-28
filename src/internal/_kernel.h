@@ -3,8 +3,6 @@
 
 #include "array.h"
 #include "kernel.h"
-#include <climits>
-#include <cmath>
 #include <cublasLt.h>
 
 #define CUBLAS_CHECK(call)                                                     \

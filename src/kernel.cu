@@ -1,13 +1,13 @@
-#include "array.h"
-#include <cstdlib>
-#include <cuda_device_runtime_api.h>
 #define ARENA_USE_CUDA
-#include "internal/_array.h"
-#include "internal/_kernel.h"
+#include "_array.h"
+#include "_kernel.h"
+#include "array.h"
 #include "kernel.h"
 #include <assert.h>
+#include <cstdlib>
 #include <cublasLt.h>
 #include <cublas_api.h>
+#include <cuda_device_runtime_api.h>
 
 CdsContext *cds_context_new(size_t workspace_bytes) {
   CdsContext *self = (CdsContext *)ARENA_MALLOC(sizeof(CdsContext));
@@ -121,12 +121,7 @@ void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
   assert(ctx && a && dest);
   assert(a->type == dest->type);
   assert(a->dim == dest->dim);
-
-  if (a->type == CDS_TYPE_FLOAT32)
-    assert(std::is_same<T, float>());
-
-  if (a->type == CDS_TYPE_FLOAT64)
-    assert(std::is_same<T, double>());
+  assert_type(b);
 
   if (a->count == 0)
     return;

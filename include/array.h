@@ -40,7 +40,6 @@ static constexpr size_t cds_type_size[] = {
  * the arena block size, not a limit: the root grows by another block when an
  * array does not fit.
  */
-[[nodiscard("check the returned pointer for allocation failure")]]
 CDS_API Cds *cds_new(size_t device_bytes);
 
 /**
@@ -49,7 +48,6 @@ CDS_API Cds *cds_new(size_t device_bytes);
  * A null `data` zero-fills the array. The array is released by cds_free on
  * the root, never on its own.
  */
-[[nodiscard("check the returned pointer for allocation failure")]]
 CDS_API CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
                             CdsType type, const void *data);
 
@@ -60,7 +58,6 @@ CDS_API CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim,
  * offset + count(shape) <= count(src). The view lives in `root`, so it is
  * reclaimed with `root`, not with `src`.
  */
-[[nodiscard]]
 CDS_API CdsArray *cds_view(Cds *root, const CdsArray *src, size_t offset,
                            const size_t *shape, size_t dim);
 
@@ -76,7 +73,6 @@ CDS_API void cds_copy(CdsArray *dst, const CdsArray *src);
  * `shape`. This is the PyTorch default initialisation for linear weights.
  * Draws from rand(), so call srand() first for a reproducible model.
  */
-[[nodiscard("check the returned pointer for allocation failure")]]
 CDS_API CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
                                  CdsType type);
 
@@ -84,7 +80,6 @@ CDS_API CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
  * Record where `root` is now, so cds_restore can reclaim every array created
  * after this point.
  */
-[[nodiscard]]
 CDS_API CdsCheckpoint cds_checkpoint(const Cds *root);
 
 /**

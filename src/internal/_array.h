@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <type_traits>
 
 #define CUDA_CHECK(call)                                                       \
   do {                                                                         \
@@ -44,6 +45,11 @@ static constexpr size_t cds_alignof[] = {
 template <typename T> void random_fill(T *data, size_t count, T low, T high) {
   for (size_t i = 0; i < count; i++)
     data[i] = low + (rand() / ((T)RAND_MAX + (T)1)) * (high - low);
+}
+
+template <typename T> static inline void assert_type(T type) {
+  static_assert(std::is_same_v<T, double> || std::is_same_v<T, float>,
+                "T must be float or double");
 }
 
 /**
