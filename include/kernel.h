@@ -101,4 +101,29 @@ template <typename T>
 CDS_API CdsError cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
                            CdsArray *dest);
 
+/**
+ * Layer normalization over the last dimension. Each row of d features is
+ * shifted to mean 0 and scaled to variance 1, then scaled by gamma and shifted
+ * by beta:
+ *
+ *   mean = sum(x) / d
+ *   var  = sum((x - mean)^2) / d
+ *   y    = gamma * (x - mean) / sqrt(var + eps) + beta
+ *
+ * x and y must have identical shapes and types. d is the last dimension of x.
+ * gamma and beta are [d] arrays of the same type, or null: a null gamma scales
+ * by 1 and a null beta shifts by 0. Both are learned parameters, usually
+ * initialised to ones and zeros. eps keeps the division finite for a constant
+ * row and must not be negative. 1e-5 is the usual value. x and y may be the
+ * same array for an in-place update. An empty input performs no work.
+ *
+ * Queues work on ctx's stream without waiting for completion.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch
+ * errors are caught here: a fault while the queued work runs is reported by the
+ * next synchronizing call, such as cds_to_host.
+ */
+CDS_API CdsError cds_layernorm(const CdsContext *ctx, const CdsArray *x,
+                               const CdsArray *gamma, const CdsArray *beta,
+                               double eps, CdsArray *y);
+
 #endif // CDS_KERNEL_H

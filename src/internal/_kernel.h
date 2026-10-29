@@ -1,7 +1,6 @@
 #ifndef CDS_INTERNAL_KERNEL_H
 #define CDS_INTERNAL_KERNEL_H
 
-#include "_error.h"
 #include "array.h"
 #include "kernel.h"
 #include <cublasLt.h>
@@ -43,6 +42,10 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
 
 CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
                     CdsArray *dest);
+
+template <typename T>
+__global__ void cds_layernorm_lt(const T *x, const T *gamma, const T *beta,
+                                 T *y, size_t cols, T eps);
 
 template <typename T>
 CdsError cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,

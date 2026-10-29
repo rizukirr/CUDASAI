@@ -1,9 +1,10 @@
-#include <cmath>
 #define ARENA_USE_CUDA
 #include "_array.h"
+#include "_error.h"
 #include "_kernel.h"
 #include "kernel.h"
 #include <assert.h>
+#include <cmath>
 #include <cublasLt.h>
 #include <cublas_api.h>
 #include <stdint.h>
@@ -275,6 +276,46 @@ done:
   }
   return err != CDS_OK ? err : cleanup;
 }
+
+template <typename T>
+__global__ void cds_layernorm_lt(const T *x, const T *gamma, const T *beta,
+                                 T *y, size_t cols, T eps) {
+  const size_t base = size_t(blockIdx.x) * cols;
+  const unsigned lane = threadIdx.x;
+
+  T sum = T(0);
+  for (size_t col = lane; col < cols; col += 32)
+    sum += x[base + col];
+
+  const T mean = softmax_warp_sum(sum) / T(cols);
+
+  T sq = T(0);
+  for (size_t col = lane; col < cols; col += 32) {
+    const T d = x[base + col] - mean;
+    sq += d * d;
+  }
+
+  const T inv_std = T(1) / sqrt(softmax_warp_sum(sq) / T(cols) + eps);
+
+  for (size_t col = lane; col < cols; col += 32) {
+    T v = (x[base + col] - mean) * inv_std;
+    if (gamma)
+      v *= gamma[col];
+    if (beta)
+      v += beta[col];
+    y[base + col] = v;
+  }
+}
+
+template __global__ void cds_layernorm_lt<float>(const float *x,
+                                                 const float *gamma,
+                                                 const float *beta, float *y,
+                                                 size_t cols, float eps);
+
+template __global__ void cds_layernorm_lt<double>(const double *x,
+                                                  const double *gamma,
+                                                  const double *beta, double *y,
+                                                  size_t cols, double eps);
 
 template <typename T>
 CdsError cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,

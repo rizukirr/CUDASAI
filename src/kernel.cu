@@ -155,3 +155,53 @@ template CdsError cds_scale<double>(const CdsContext *ctx, const CdsArray *a,
 CdsError cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
   return kernel_fill(ctx, dst, value);
 }
+
+CDS_API CdsError cds_layernorm(const CdsContext *ctx, const CdsArray *x,
+                               const CdsArray *gamma, const CdsArray *beta,
+                               double eps, CdsArray *y) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && x != nullptr && y != nullptr));
+  CDS_TRY(CDS_REQUIRE(x->dim == y->dim));
+  CDS_TRY(CDS_REQUIRE(x->type == y->type));
+  CDS_TRY(CDS_REQUIRE(x->count == y->count));
+  CDS_TRY(CDS_REQUIRE(eps >= 0));
+
+  if (x->count == 0)
+    return CDS_OK;
+
+  for (size_t i = 0; i < x->dim; i++)
+    CDS_TRY(CDS_REQUIRE(x->shape[i] == y->shape[i]));
+
+  const size_t cols = x->shape[x->dim - 1];
+  CDS_TRY(CDS_REQUIRE(cols > 0));
+
+  if (gamma)
+    CDS_TRY(CDS_REQUIRE(gamma->type == x->type && gamma->count == cols));
+  if (beta)
+    CDS_TRY(CDS_REQUIRE(beta->type == x->type && beta->count == cols));
+
+  const size_t rows = x->count / cols;
+  CDS_TRY(CDS_REQUIRE(rows <= INT_MAX));
+
+  const unsigned blocks = static_cast<unsigned>(rows);
+
+  switch (x->type) {
+  case CDS_TYPE_FLOAT32:
+    cds_layernorm_lt<float><<<blocks, 32, 0, ctx->stream>>>(
+        static_cast<const float *>(x->data),
+        gamma ? static_cast<const float *>(gamma->data) : nullptr,
+        beta ? static_cast<const float *>(beta->data) : nullptr,
+        static_cast<float *>(y->data), cols, static_cast<float>(eps));
+    break;
+  case CDS_TYPE_FLOAT64:
+    cds_layernorm_lt<double><<<blocks, 32, 0, ctx->stream>>>(
+        static_cast<const double *>(x->data),
+        gamma ? static_cast<const double *>(gamma->data) : nullptr,
+        beta ? static_cast<const double *>(beta->data) : nullptr,
+        static_cast<double *>(y->data), cols, eps);
+    break;
+  default:
+    return CDS_FAIL(CDS_ERR_INVALID, "unknown dtype %d", (int)x->type);
+  }
+
+  return CDS_CUDA(cudaGetLastError());
+}

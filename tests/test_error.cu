@@ -23,6 +23,14 @@ template <typename T> void test_error(Cds *root, CdsContext *context) {
   expect_error(cds_add(context, a, b, c), CDS_ERR_INVALID, "shape");
   expect_error(cds_copy(a, b), CDS_ERR_INVALID, "count");
   expect_error(cds_softmax(context, a, b), CDS_ERR_INVALID, "count");
+  expect_error(cds_layernorm(context, a, nullptr, nullptr, 1e-5, b),
+               CDS_ERR_INVALID, "count");
+  expect_error(cds_layernorm(context, m, a, nullptr, 1e-5, m), CDS_ERR_INVALID,
+               "gamma");
+  expect_error(cds_layernorm(context, m, nullptr, a, 1e-5, m), CDS_ERR_INVALID,
+               "beta");
+  expect_error(cds_layernorm(context, m, nullptr, nullptr, -1.0, m),
+               CDS_ERR_INVALID, "eps");
   expect_error(cds_linear(context, a, m, nullptr, CDS_ACTIVATION_NONE, c),
                CDS_ERR_INVALID, "in_features");
   expect_error(cds_to_host(a, nullptr), CDS_ERR_INVALID, "dst");

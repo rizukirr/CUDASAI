@@ -83,6 +83,7 @@ if(BUILD_TESTING)
     tests/test_scale.cu
     tests/test_linear.cu
     tests/test_softmax.cu
+    tests/test_layernorm.cu
     tests/test_error.cu
   )
   target_link_libraries(public_api_test PRIVATE cdscore)
@@ -103,6 +104,7 @@ if(BUILD_TESTING)
         scale
         linear
         softmax
+        layernorm
         error)
       add_test(NAME api.${case}.${dtype} COMMAND
         public_api_test ${case} ${dtype})
