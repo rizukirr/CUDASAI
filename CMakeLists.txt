@@ -27,6 +27,7 @@ find_package(CUDAToolkit REQUIRED)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 add_library(cdscore 
+  src/error.cu
   src/array.cu
   src/kernel.cu
   src/internal/_array.cu
@@ -82,6 +83,7 @@ if(BUILD_TESTING)
     tests/test_scale.cu
     tests/test_linear.cu
     tests/test_softmax.cu
+    tests/test_error.cu
   )
   target_link_libraries(public_api_test PRIVATE cdscore)
   set_target_properties(public_api_test
@@ -100,7 +102,8 @@ if(BUILD_TESTING)
         add
         scale
         linear
-        softmax)
+        softmax
+        error)
       add_test(NAME api.${case}.${dtype} COMMAND
         public_api_test ${case} ${dtype})
       set_tests_properties(api.${case}.${dtype} PROPERTIES

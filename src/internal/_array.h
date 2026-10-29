@@ -1,22 +1,13 @@
 #ifndef CDS_INTERNAL_H
 #define CDS_INTERNAL_H
 
+#include "_error.h"
 #include "arena.h"
 #include "array.h"
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <type_traits>
-
-#define CUDA_CHECK(call)                                                       \
-  do {                                                                         \
-    cudaError_t cds_err_ = (call);                                             \
-    if (cds_err_ != cudaSuccess) {                                             \
-      fprintf(stderr, "%s:%d: CUDA error: %s\n", __FILE__, __LINE__,           \
-              cudaGetErrorString(cds_err_));                                   \
-      abort();                                                                 \
-    }                                                                          \
-  } while (0)
 
 struct Cds {
   Arena *arena; // device memory for array data
