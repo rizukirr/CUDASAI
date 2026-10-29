@@ -5,24 +5,37 @@
 #include "kernel.h"
 #include <assert.h>
 #include <cstdlib>
+#include <limits.h>
 #include <cublasLt.h>
 #include <cublas_api.h>
 #include <cuda_device_runtime_api.h>
 
 CdsContext *cds_context_new(size_t workspace_bytes) {
   CdsContext *self = (CdsContext *)ARENA_MALLOC(sizeof(CdsContext));
-  if (!self)
+  if (!self) {
+    CDS_FAIL(CDS_ERR_OUT_OF_MEMORY, "host allocation of CdsContext failed");
     return nullptr;
+  }
+  self->stream = nullptr;
+  self->lt = nullptr;
+  self->workspace = nullptr;
+  self->workspace_size = workspace_bytes;
 
   // The stream comes first: creating it initialises the device context that
   // cublasLtCreate probes for.
-  CUDA_CHECK(cudaStreamCreate(&self->stream));
-  CUBLAS_CHECK(cublasLtCreate(&self->lt));
-
-  self->workspace = nullptr;
-  self->workspace_size = workspace_bytes;
-  if (workspace_bytes > 0)
-    CUDA_CHECK(cudaMalloc(&self->workspace, workspace_bytes));
+  if (CDS_CUDA(cudaStreamCreate(&self->stream)) ||
+      CDS_CUBLAS(cublasLtCreate(&self->lt)) ||
+      (workspace_bytes > 0 &&
+       CDS_CUDA(cudaMalloc(&self->workspace, workspace_bytes)))) {
+    // Release what was created. The raw calls leave the recorded failure as
+    // the last error.
+    if (self->lt)
+      (void)cublasLtDestroy(self->lt);
+    if (self->stream)
+      (void)cudaStreamDestroy(self->stream);
+    ARENA_FREE(self);
+    return nullptr;
+  }
 
   return self;
 }
@@ -31,52 +44,54 @@ void cds_context_free(CdsContext *ctx) {
   if (ctx == nullptr)
     return;
 
-  CUDA_CHECK(cudaStreamSynchronize(ctx->stream));
-  CUDA_CHECK(cudaFree(ctx->workspace));
-  CUDA_CHECK(cudaStreamDestroy(ctx->stream));
-  CUBLAS_CHECK(cublasLtDestroy(ctx->lt));
+  // Every step runs even if an earlier one fails, so nothing leaks.
+  (void)CDS_CUDA(cudaStreamSynchronize(ctx->stream));
+  (void)CDS_CUDA(cudaFree(ctx->workspace));
+  (void)CDS_CUDA(cudaStreamDestroy(ctx->stream));
+  (void)CDS_CUBLAS(cublasLtDestroy(ctx->lt));
   ARENA_FREE(ctx);
 }
 
-void cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
-                const CdsArray *b, CdsActivation activation, CdsArray *y) {
-  assert(x != nullptr);
-  assert(W != nullptr);
-  assert(y != nullptr);
-  assert(W->dim == 2);
-  assert(W->type == x->type && y->type == x->type);
+CdsError cds_linear(const CdsContext *ctx, const CdsArray *x,
+                    const CdsArray *W, const CdsArray *b,
+                    CdsActivation activation, CdsArray *y) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && x != nullptr && W != nullptr &&
+                      y != nullptr));
+  CDS_TRY(CDS_REQUIRE(W->dim == 2));
+  CDS_TRY(CDS_REQUIRE(W->type == x->type && y->type == x->type));
 
   const size_t in_features = x->shape[x->dim - 1];
   const size_t out_features = W->shape[0];
+  CDS_TRY(CDS_REQUIRE(in_features > 0));
   const size_t batch = x->count / in_features;
-  assert(W->shape[1] == in_features);
-  assert(y->shape[y->dim - 1] == out_features);
-  assert(y->count == batch * out_features);
+  CDS_TRY(CDS_REQUIRE(W->shape[1] == in_features));
+  CDS_TRY(CDS_REQUIRE(y->shape[y->dim - 1] == out_features));
+  CDS_TRY(CDS_REQUIRE(y->count == batch * out_features));
   if (b) {
-    assert(b->type == x->type);
-    assert(b->count == out_features);
+    CDS_TRY(CDS_REQUIRE(b->type == x->type));
+    CDS_TRY(CDS_REQUIRE(b->count == out_features));
   }
 
-  cds_matmul_lt(ctx, activation, x, W, b, y);
+  return cds_matmul_lt(ctx, activation, x, W, b, y);
 }
 
-void cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y) {
-  assert(ctx && x && y);
-  assert(x->dim == y->dim);
-  assert(x->type == y->type);
-  assert(x->count == y->count);
+CdsError cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && x != nullptr && y != nullptr));
+  CDS_TRY(CDS_REQUIRE(x->dim == y->dim));
+  CDS_TRY(CDS_REQUIRE(x->type == y->type));
+  CDS_TRY(CDS_REQUIRE(x->count == y->count));
 
   if (x->count == 0)
-    return;
+    return CDS_OK;
 
   for (size_t i = 0; i < x->dim; i++)
-    assert(x->shape[i] == y->shape[i]);
+    CDS_TRY(CDS_REQUIRE(x->shape[i] == y->shape[i]));
 
   const size_t cols = x->shape[x->dim - 1];
-  assert(cols > 0);
+  CDS_TRY(CDS_REQUIRE(cols > 0));
 
   const size_t rows = x->count / cols;
-  assert(rows <= INT_MAX);
+  CDS_TRY(CDS_REQUIRE(rows <= INT_MAX));
   const unsigned blocks = static_cast<unsigned>(rows);
 
   switch (x->type) {
@@ -91,53 +106,53 @@ void cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y) {
                                          static_cast<double *>(y->data), cols);
     break;
   default:
-    abort();
+    return CDS_FAIL(CDS_ERR_INVALID, "unknown dtype %d", (int)x->type);
   }
 
-  CUDA_CHECK(cudaGetLastError());
+  return CDS_CUDA(cudaGetLastError());
 }
 
-void cds_add(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
-             CdsArray *dest) {
-
-  assert(ctx && a && b && dest);
-  assert(b->type == a->type && dest->type == a->type);
-  assert(a->dim == b->dim && a->dim == dest->dim);
+CdsError cds_add(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+                 CdsArray *dest) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && a != nullptr && b != nullptr &&
+                      dest != nullptr));
+  CDS_TRY(CDS_REQUIRE(b->type == a->type && dest->type == a->type));
+  CDS_TRY(CDS_REQUIRE(a->dim == b->dim && a->dim == dest->dim));
 
   if (a->count == 0)
-    return;
+    return CDS_OK;
 
   for (size_t i = 0; i < a->dim; i++) {
-    assert(a->shape[i] == b->shape[i]);
-    assert(a->shape[i] == dest->shape[i]);
+    CDS_TRY(CDS_REQUIRE(a->shape[i] == b->shape[i]));
+    CDS_TRY(CDS_REQUIRE(a->shape[i] == dest->shape[i]));
   }
 
-  cds_add_lt(ctx, a, b, dest);
+  return cds_add_lt(ctx, a, b, dest);
 }
 
 template <typename T>
-void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
-               CdsArray *dest) {
-  assert(ctx && a && dest);
-  assert(a->type == dest->type);
-  assert(a->dim == dest->dim);
+CdsError cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
+                   CdsArray *dest) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && a != nullptr && dest != nullptr));
+  CDS_TRY(CDS_REQUIRE(a->type == dest->type));
+  CDS_TRY(CDS_REQUIRE(a->dim == dest->dim));
   assert_type(b);
 
   if (a->count == 0)
-    return;
+    return CDS_OK;
 
   for (size_t i = 0; i < a->dim; i++)
-    assert(a->shape[i] == dest->shape[i]);
+    CDS_TRY(CDS_REQUIRE(a->shape[i] == dest->shape[i]));
 
-  cds_scale_lt(ctx, a, b, dest);
+  return cds_scale_lt(ctx, a, b, dest);
 }
 
-template void cds_scale<float>(const CdsContext *ctx, const CdsArray *a,
-                               const float b, CdsArray *dest);
+template CdsError cds_scale<float>(const CdsContext *ctx, const CdsArray *a,
+                                   const float b, CdsArray *dest);
 
-template void cds_scale<double>(const CdsContext *ctx, const CdsArray *a,
-                                const double b, CdsArray *dest);
+template CdsError cds_scale<double>(const CdsContext *ctx, const CdsArray *a,
+                                    const double b, CdsArray *dest);
 
-void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
-  kernel_fill(ctx, dst, value);
+CdsError cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value) {
+  return kernel_fill(ctx, dst, value);
 }

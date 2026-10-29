@@ -16,20 +16,23 @@ typedef struct CdsContext CdsContext;
 /**
  * Create a context with `workspace_bytes` of device scratch for cuBLASLt.
  * Zero is allowed and limits cuBLASLt to algorithms that need none. 32 MB
- * is a good default. Returns null if the host allocation fails.
+ * is a good default. Returns null on failure, with the reason in cds_last_error().
  */
 CDS_API CdsContext *cds_context_new(size_t workspace_bytes);
 
 /**
  * Wait for work queued on the context's stream, then release the handle,
  * workspace and stream. Null is a no-op.
+ * A failed sync or release is recorded in cds_last_error(), and every resource is still released.
  */
 CDS_API void cds_context_free(CdsContext *ctx);
 
 /**
  * Set every element of `dst` to `*value`, read as `dst`'s dtype.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch errors are caught here: a fault while the queued work runs is reported by the next synchronizing call, such as cds_to_host.
  */
-CDS_API void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
+CDS_API CdsError cds_fill(const CdsContext *ctx, CdsArray *dst,
+                          const void *value);
 
 /**
  * y = x · W^T + b, row-major, through cuBLASLt.
@@ -39,16 +42,19 @@ CDS_API void cds_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
  * dimensions as x. All four share one dtype. Nothing is allocated: the caller
  * owns every array, so W and b can live for the whole program while x and y
  * are created per batch.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch errors are caught here: a fault while the queued work runs is reported by the next synchronizing call, such as cds_to_host.
  */
-CDS_API void cds_linear(const CdsContext *ctx, const CdsArray *x,
-                        const CdsArray *W, const CdsArray *b,
-                        CdsActivation activation, CdsArray *y);
+CDS_API CdsError cds_linear(const CdsContext *ctx, const CdsArray *x,
+                            const CdsArray *W, const CdsArray *b,
+                            CdsActivation activation, CdsArray *y);
 
 /**
  * Apply softmax over the last dimension.
  * Input and output must have identical shapes and types.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch errors are caught here: a fault while the queued work runs is reported by the next synchronizing call, such as cds_to_host.
  */
-CDS_API void cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y);
+CDS_API CdsError cds_softmax(const CdsContext *ctx, const CdsArray *x,
+                             CdsArray *y);
 
 /**
  * Elementwise dest = a + b through cuBLASLt, without broadcasting.
@@ -59,9 +65,10 @@ CDS_API void cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y);
  * Queues work on ctx's stream without waiting for completion. Keep the
  * arrays alive until that work finishes and synchronize the stream before
  * reading the result from the host or using it on another stream.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch errors are caught here: a fault while the queued work runs is reported by the next synchronizing call, such as cds_to_host.
  */
-CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
-                     const CdsArray *b, CdsArray *dest);
+CDS_API CdsError cds_add(const CdsContext *ctx, const CdsArray *a,
+                         const CdsArray *b, CdsArray *dest);
 
 /**
  * Computes dest[i] = a[i] * b through cuBLASLt, where b is a scalar.
@@ -76,9 +83,10 @@ CDS_API void cds_add(const CdsContext *ctx, const CdsArray *a,
  * Keep the input and output device memory valid until the work finishes.
  * Synchronize before reading the result from the host. Before using it
  * on another stream, establish a dependency, for example with a CUDA event.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch errors are caught here: a fault while the queued work runs is reported by the next synchronizing call, such as cds_to_host.
  */
 template <typename T>
-CDS_API void cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
-                       CdsArray *dest);
+CDS_API CdsError cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
+                           CdsArray *dest);
 
 #endif // CDS_KERNEL_H
