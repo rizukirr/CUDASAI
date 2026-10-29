@@ -27,6 +27,7 @@ template <typename T> void test_array(Cds *root) {
 
   const size_t overflow[] = {std::numeric_limits<size_t>::max(), 2};
   CHECK(cds_array(root, overflow, 2, dtype<T>(), nullptr) == nullptr);
+  CHECK(cds_last_error() == CDS_ERR_INVALID);
 }
 
 template void test_array<float>(Cds *root);
