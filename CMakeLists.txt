@@ -27,6 +27,7 @@ find_package(CUDAToolkit REQUIRED)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 add_library(cdscore 
+  src/error.cu
   src/array.cu
   src/kernel.cu
   src/internal/_array.cu
