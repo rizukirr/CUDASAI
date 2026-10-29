@@ -41,11 +41,10 @@ CdsArray *cds_array(Cds *root, const size_t *shape, size_t dim, CdsType type,
   if (!self)
     return nullptr;
 
-  CdsError err =
-      data == nullptr
-          ? CDS_CUDA(cudaMemset(self->data, 0, self->capacity))
-          : CDS_CUDA(cudaMemcpy(self->data, data, self->capacity,
-                                cudaMemcpyHostToDevice));
+  CdsError err = data == nullptr
+                     ? CDS_CUDA(cudaMemset(self->data, 0, self->capacity))
+                     : CDS_CUDA(cudaMemcpy(self->data, data, self->capacity,
+                                           cudaMemcpyHostToDevice));
   return err == CDS_OK ? self : nullptr;
 }
 
@@ -57,8 +56,8 @@ CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
 
   void *staging = ARENA_MALLOC(self->capacity);
   if (!staging) {
-    CDS_FAIL(CDS_ERR_OUT_OF_MEMORY, "host staging allocation of %zu bytes failed",
-             self->capacity);
+    CDS_FAIL(CDS_ERR_OUT_OF_MEMORY,
+             "host staging allocation of %zu bytes failed", self->capacity);
     return nullptr;
   }
 
@@ -87,8 +86,7 @@ CdsArray *cds_view(Cds *root, const CdsArray *src, size_t offset,
   if (!self)
     return nullptr;
 
-  if (CDS_REQUIRE(offset <= src->count &&
-                  self->count <= src->count - offset))
+  if (CDS_REQUIRE(offset <= src->count && self->count <= src->count - offset))
     return nullptr;
   self->data = (unsigned char *)src->data + src->elem_size * offset;
   return self;

@@ -135,9 +135,12 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
                    sizeof(bias->data)))))
     goto done;
 
-  if ((err = CDS_CUBLAS(cublasLtMatrixLayoutCreate(&a_layout, dtype, K, N, K))) ||
-      (err = CDS_CUBLAS(cublasLtMatrixLayoutCreate(&b_layout, dtype, K, M, K))) ||
-      (err = CDS_CUBLAS(cublasLtMatrixLayoutCreate(&c_layout, dtype, N, M, N))) ||
+  if ((err =
+           CDS_CUBLAS(cublasLtMatrixLayoutCreate(&a_layout, dtype, K, N, K))) ||
+      (err =
+           CDS_CUBLAS(cublasLtMatrixLayoutCreate(&b_layout, dtype, K, M, K))) ||
+      (err =
+           CDS_CUBLAS(cublasLtMatrixLayoutCreate(&c_layout, dtype, N, M, N))) ||
       (err = CDS_CUBLAS(cublasLtMatmulPreferenceCreate(&pref))) ||
       (err = CDS_CUBLAS(cublasLtMatmulPreferenceSetAttribute(
            pref, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &ctx->workspace_size,
@@ -148,8 +151,8 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
     goto done;
 
   if (found == 0) {
-    err = CDS_FAIL(CDS_ERR_INTERNAL, "cuBLASLt: no algorithm for M=%d N=%d K=%d",
-                   M, N, K);
+    err = CDS_FAIL(CDS_ERR_INTERNAL,
+                   "cuBLASLt: no algorithm for M=%d N=%d K=%d", M, N, K);
     goto done;
   }
 
@@ -222,8 +225,8 @@ template __global__ void cds_softmax_lt<float>(const float *x, float *y,
 template __global__ void cds_softmax_lt<double>(const double *x, double *y,
                                                 size_t cols);
 
-CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a,
-                    const CdsArray *b, CdsArray *dest) {
+CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+                    CdsArray *dest) {
   assert(a->type == b->type);
   assert(a->type == dest->type);
 
@@ -248,7 +251,8 @@ CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a,
       (err = CDS_CUBLAS(cublasLtMatrixTransformDescCreate(
            &transform, CDS_CUDA_TYPE(a->type)))) ||
       (err = CDS_CUBLAS(cublasLtMatrixTransformDescSetAttribute(
-           transform, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &op, sizeof(op)))) ||
+           transform, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &op,
+           sizeof(op)))) ||
       (err = CDS_CUBLAS(cublasLtMatrixTransformDescSetAttribute(
            transform, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSB, &op, sizeof(op)))))
     goto done;
@@ -320,6 +324,5 @@ done:
 template CdsError cds_scale_lt<float>(const CdsContext *ctx, const CdsArray *a,
                                       const float b, CdsArray *dest);
 
-template CdsError cds_scale_lt<double>(const CdsContext *ctx,
-                                       const CdsArray *a, const double b,
-                                       CdsArray *dest);
+template CdsError cds_scale_lt<double>(const CdsContext *ctx, const CdsArray *a,
+                                       const double b, CdsArray *dest);

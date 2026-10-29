@@ -5,10 +5,10 @@
 #include "kernel.h"
 #include <assert.h>
 #include <cstdlib>
-#include <limits.h>
 #include <cublasLt.h>
 #include <cublas_api.h>
 #include <cuda_device_runtime_api.h>
+#include <limits.h>
 
 CdsContext *cds_context_new(size_t workspace_bytes) {
   CdsContext *self = (CdsContext *)ARENA_MALLOC(sizeof(CdsContext));
@@ -52,9 +52,8 @@ void cds_context_free(CdsContext *ctx) {
   ARENA_FREE(ctx);
 }
 
-CdsError cds_linear(const CdsContext *ctx, const CdsArray *x,
-                    const CdsArray *W, const CdsArray *b,
-                    CdsActivation activation, CdsArray *y) {
+CdsError cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
+                    const CdsArray *b, CdsActivation activation, CdsArray *y) {
   CDS_TRY(CDS_REQUIRE(ctx != nullptr && x != nullptr && W != nullptr &&
                       y != nullptr));
   CDS_TRY(CDS_REQUIRE(W->dim == 2));

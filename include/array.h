@@ -2,8 +2,8 @@
 #define CDS_ARRAY_H
 
 #include "arena.h"
-#include "export.h"
 #include "error.h"
+#include "export.h"
 #include <stddef.h>
 
 constexpr size_t CDS_MAX_DIM = 8;
@@ -119,7 +119,8 @@ CDS_API CdsError cds_to_meta(const CdsArray *self, CdsArrayMeta *meta);
 /**
  * Release a root together with every array created inside it. Arrays have no
  * free of their own.
- * A failed device sync is recorded in cds_last_error(), and memory is still released.
+ * A failed device sync is recorded in cds_last_error(), and memory is still
+ * released.
  */
 CDS_API void cds_free(Cds *root);
 

@@ -1,9 +1,9 @@
 #ifndef CDS_INTERNAL_H
 #define CDS_INTERNAL_H
 
+#include "_error.h"
 #include "arena.h"
 #include "array.h"
-#include "_error.h"
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,9 +1,9 @@
 #ifndef CDS_INTERNAL_KERNEL_H
 #define CDS_INTERNAL_KERNEL_H
 
+#include "_error.h"
 #include "array.h"
 #include "kernel.h"
-#include "_error.h"
 #include <cublasLt.h>
 
 constexpr unsigned CDS_THREAD_DEFAULT = 256;
@@ -41,8 +41,8 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
                        const CdsArray *x, const CdsArray *w,
                        const CdsArray *bias, CdsArray *y);
 
-CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a,
-                    const CdsArray *b, CdsArray *dest);
+CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+                    CdsArray *dest);
 
 template <typename T>
 CdsError cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,
