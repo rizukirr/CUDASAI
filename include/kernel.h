@@ -126,4 +126,30 @@ CDS_API CdsError cds_layernorm(const CdsContext *ctx, const CdsArray *x,
                                const CdsArray *gamma, const CdsArray *beta,
                                double eps, CdsArray *y);
 
+/**
+ * Find the position of the biggest value in each row, over the last dimension.
+ *
+ *            col 0  col 1     biggest    argmax
+ *   row 0  [ 0.55,  0.45 ]     0.55        0
+ *   row 1  [ 0.69,  0.31 ]     0.69        0
+ *   row 2  [ 0.73,  0.27 ]     0.73        0
+ *   row 3  [ 0.70,  0.30 ]     0.70        0
+ *
+ * The result is [0, 0, 0, 0]. It holds the positions of the biggest values,
+ * not the values.
+ *
+ * x is CDS_TYPE_FLOAT32 or CDS_TYPE_FLOAT64. dest is CDS_TYPE_INT32 and holds
+ * one value per row, so its count must equal x's count divided by x's last
+ * dimension. The caller allocates dest.
+ * A tie picks the lowest column. A row containing NaN gets a column inside the
+ * row, but which one is unspecified.
+ *
+ * Queues work on ctx's stream without waiting for completion.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch
+ * errors are caught here: a fault while the queued work runs is reported by the
+ * next synchronizing call, such as cds_to_host.
+ */
+CDS_API CdsError cds_argmax(const CdsContext *ctx, const CdsArray *x,
+                            CdsArray *dest);
+
 #endif // CDS_KERNEL_H

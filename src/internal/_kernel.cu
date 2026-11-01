@@ -362,6 +362,44 @@ done:
   return err != CDS_OK ? err : cleanup;
 }
 
+template <typename T>
+__global__ void cds_argmax_lt(const T *x, int32_t *dest, size_t cols) {
+  const size_t base = size_t(blockIdx.x) * cols;
+  const unsigned lane = threadIdx.x;
+
+  T best = -T(INFINITY);
+  int32_t index = INT32_MAX;
+  if (lane < cols) {
+    best = x[base + lane];
+    index = int32_t(lane);
+  }
+
+  for (size_t col = lane + 32; col < cols; col += 32) {
+    if (x[base + col] > best) {
+      best = x[base + col];
+      index = int32_t(col);
+    }
+  }
+
+  for (int offset = 16; offset > 0; offset /= 2) {
+    const T other = __shfl_xor_sync(0xffffffffu, best, offset);
+    const int32_t other_index = __shfl_xor_sync(0xffffffffu, index, offset);
+    if (other > best || (other == best && other_index < index)) {
+      best = other;
+      index = other_index;
+    }
+  }
+
+  if (lane == 0)
+    dest[blockIdx.x] = index;
+}
+
+template __global__ void cds_argmax_lt<float>(const float *x, int32_t *dest,
+                                              size_t cols);
+
+template __global__ void cds_argmax_lt<double>(const double *x, int32_t *dest,
+                                               size_t cols);
+
 template CdsError cds_scale_lt<float>(const CdsContext *ctx, const CdsArray *a,
                                       const float b, CdsArray *dest);
 

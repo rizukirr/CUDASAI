@@ -17,6 +17,7 @@ template <typename T> void test_cds_to_meta(Cds *root) {
     CHECK(meta.count == count);
     CHECK(meta.dim == original_shape.size());
     CHECK(meta.elem_size == sizeof(T));
+    CHECK(meta.type == dtype<T>());
     CHECK(meta.capacity == count * sizeof(T));
     CHECK(meta.data != nullptr);
     const std::vector<T> values(count, T(3.5));

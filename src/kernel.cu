@@ -58,6 +58,7 @@ CdsError cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
                       y != nullptr));
   CDS_TRY(CDS_REQUIRE(W->dim == 2));
   CDS_TRY(CDS_REQUIRE(W->type == x->type && y->type == x->type));
+  CDS_TRY(CDS_REQUIRE(cds_is_float(x->type)));
 
   const size_t in_features = x->shape[x->dim - 1];
   const size_t out_features = W->shape[0];
@@ -116,6 +117,7 @@ CdsError cds_add(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
   CDS_TRY(CDS_REQUIRE(ctx != nullptr && a != nullptr && b != nullptr &&
                       dest != nullptr));
   CDS_TRY(CDS_REQUIRE(b->type == a->type && dest->type == a->type));
+  CDS_TRY(CDS_REQUIRE(cds_is_float(a->type)));
   CDS_TRY(CDS_REQUIRE(a->dim == b->dim && a->dim == dest->dim));
 
   if (a->count == 0)
@@ -134,6 +136,7 @@ CdsError cds_scale(const CdsContext *ctx, const CdsArray *a, const T b,
                    CdsArray *dest) {
   CDS_TRY(CDS_REQUIRE(ctx != nullptr && a != nullptr && dest != nullptr));
   CDS_TRY(CDS_REQUIRE(a->type == dest->type));
+  CDS_TRY(CDS_REQUIRE(cds_is_float(a->type)));
   CDS_TRY(CDS_REQUIRE(a->dim == dest->dim));
   assert_type(b);
 
@@ -201,6 +204,36 @@ CDS_API CdsError cds_layernorm(const CdsContext *ctx, const CdsArray *x,
     break;
   default:
     return CDS_FAIL(CDS_ERR_INVALID, "unknown dtype %d", (int)x->type);
+  }
+
+  return CDS_CUDA(cudaGetLastError());
+}
+
+CdsError cds_argmax(const CdsContext *ctx, const CdsArray *x, CdsArray *dest) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && x != nullptr && dest != nullptr));
+  CDS_TRY(CDS_REQUIRE(dest->type == CDS_TYPE_INT32));
+  const size_t cols = x->shape[x->dim - 1];
+  CDS_TRY(CDS_REQUIRE(cols > 0 && cols <= INT_MAX));
+  const size_t rows = x->count / cols;
+  CDS_TRY(CDS_REQUIRE(rows <= INT_MAX && dest->count == rows));
+
+  const unsigned blocks = static_cast<unsigned>(rows);
+
+  switch (x->type) {
+  case CDS_TYPE_FLOAT32:
+    cds_argmax_lt<float><<<blocks, 32, 0, ctx->stream>>>(
+        static_cast<float *>(x->data), static_cast<int32_t *>(dest->data),
+        cols);
+    break;
+
+  case CDS_TYPE_FLOAT64:
+    cds_argmax_lt<double><<<blocks, 32, 0, ctx->stream>>>(
+        static_cast<double *>(x->data), static_cast<int32_t *>(dest->data),
+        cols);
+    break;
+  default:
+    return CDS_FAIL(CDS_ERR_INVALID,
+                    "Type is not supported, try to use float or double");
   }
 
   return CDS_CUDA(cudaGetLastError());

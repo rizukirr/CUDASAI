@@ -1,5 +1,6 @@
 #include "helper.h"
 #include <cuda_runtime.h>
+#include <type_traits>
 #include <vector>
 
 template <typename T>
@@ -12,7 +13,10 @@ static void print_dimension(FILE *output, const CdsArrayMeta &meta,
     if (i > 0)
       std::fputs(row ? ", " : ",", output);
     if (row) {
-      std::fprintf(output, "%.2f", double(values[offset++]));
+      if constexpr (std::is_same_v<T, int32_t>)
+        std::fprintf(output, "%d", values[offset++]);
+      else
+        std::fprintf(output, "%.2f", double(values[offset++]));
     } else {
       if (i > 0)
         std::fprintf(output, "\n%*s", int((depth + 1) * 2), "");
@@ -38,8 +42,7 @@ bool print_array(const CdsArray *array, FILE *output) {
     return false;
   CdsArrayMeta meta{};
   cds_to_meta(array, &meta);
-  if (meta.dim == 0 || meta.dim > CDS_MAX_DIM ||
-      (meta.elem_size != sizeof(float) && meta.elem_size != sizeof(double)))
+  if (meta.dim == 0 || meta.dim > CDS_MAX_DIM)
     return false;
 
   const cudaError_t status = cudaDeviceSynchronize();
@@ -52,10 +55,16 @@ bool print_array(const CdsArray *array, FILE *output) {
   for (size_t i = 0; i < meta.dim; ++i)
     std::fprintf(output, "%s%zu", i ? ", " : "", meta.shape[i]);
   std::fputs("]\n", output);
-  // The public API currently supports only float32 and float64.
-  if (meta.elem_size == sizeof(float))
+  switch (meta.type) {
+  case CDS_TYPE_FLOAT32:
     print_values<float>(array, meta, output);
-  else
+    break;
+  case CDS_TYPE_FLOAT64:
     print_values<double>(array, meta, output);
+    break;
+  case CDS_TYPE_INT32:
+    print_values<int32_t>(array, meta, output);
+    break;
+  }
   return std::ferror(output) == 0;
 }

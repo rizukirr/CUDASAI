@@ -69,6 +69,11 @@ CdsArray *cds_array_rand(Cds *root, const size_t *shape, size_t dim,
   case CDS_TYPE_FLOAT64:
     random_fill((double *)staging, self->count, -bound, bound);
     break;
+  default:
+    CDS_FAIL(CDS_ERR_INVALID, "Type is not supported, try to use "
+                              "CDS_TYPE_FLOAT32 or CDS_TYPE_FLOAT64");
+    ARENA_FREE(staging);
+    return nullptr;
   }
 
   CdsError err = CDS_CUDA(
@@ -135,6 +140,7 @@ CdsError cds_to_meta(const CdsArray *self, CdsArrayMeta *meta) {
   meta->dim = self->dim;
   meta->capacity = self->capacity;
   meta->elem_size = self->elem_size;
+  meta->type = self->type;
   meta->data = self->data;
   memcpy(meta->shape, self->shape, sizeof(size_t) * self->dim);
   return CDS_OK;

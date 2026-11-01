@@ -35,6 +35,31 @@ template <typename T> void test_error(Cds *root, CdsContext *context) {
                CDS_ERR_INVALID, "in_features");
   expect_error(cds_to_host(a, nullptr), CDS_ERR_INVALID, "dst");
 
+  const size_t row[] = {1};
+  const int32_t ints[] = {1, 2};
+  CdsArray *i2 = cds_array(root, two, 1, CDS_TYPE_INT32, ints);
+  CdsArray *i2b = cds_array(root, two, 1, CDS_TYPE_INT32, nullptr);
+  CdsArray *i2c = cds_array(root, two, 1, CDS_TYPE_INT32, nullptr);
+  CdsArray *i1 = cds_array(root, row, 1, CDS_TYPE_INT32, nullptr);
+  CHECK(i2 && i2b && i2c && i1);
+
+  expect_error(cds_argmax(context, a, c), CDS_ERR_INVALID, "dest->type");
+  expect_error(cds_argmax(context, m, i1), CDS_ERR_INVALID, "dest->count");
+  expect_error(cds_argmax(context, i2, i1), CDS_ERR_INVALID, "not supported");
+
+  // Integer arrays must not reach the floating point kernels.
+  expect_error(cds_add(context, i2, i2b, i2c), CDS_ERR_INVALID, "float");
+  expect_error(cds_scale<T>(context, i2, T(2), i2c), CDS_ERR_INVALID, "float");
+  const size_t int_w_shape[] = {2, 2};
+  CdsArray *int_w = cds_array(root, int_w_shape, 2, CDS_TYPE_INT32, nullptr);
+  CHECK(int_w);
+  expect_error(
+      cds_linear(context, i2, int_w, nullptr, CDS_ACTIVATION_NONE, i2c),
+      CDS_ERR_INVALID, "float");
+  expect_error(cds_softmax(context, i2, i2c), CDS_ERR_INVALID, "dtype");
+  CHECK(cds_array_rand(root, two, 1, CDS_TYPE_INT32) == nullptr);
+  expect_error(cds_last_error(), CDS_ERR_INVALID, "not supported");
+
   CHECK(cds_view(root, a, 1, two, 1) == nullptr);
   expect_error(cds_last_error(), CDS_ERR_INVALID, "offset");
 

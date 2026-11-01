@@ -5,14 +5,22 @@
 #include "error.h"
 #include "export.h"
 #include <stddef.h>
+#include <stdint.h>
 
 constexpr size_t CDS_MAX_DIM = 8;
 
 typedef struct Cds Cds;           // a root: owns device memory
 typedef struct CdsArray CdsArray; // an array living inside a root
 
+typedef enum {
+  CDS_TYPE_FLOAT32,
+  CDS_TYPE_FLOAT64,
+  CDS_TYPE_INT32, // Only valid as cds_argmax's dest.
+} CdsType;
+
 typedef struct {
   size_t count, dim, capacity, elem_size;
+  CdsType type;
   size_t shape[CDS_MAX_DIM];
   void *data; // Borrowed device pointer, never dereference on the host.
 } CdsArrayMeta;
@@ -24,15 +32,11 @@ typedef struct CdsCheckpoint {
   ArenaCheckpoint host;
 } CdsCheckpoint;
 
-typedef enum {
-  CDS_TYPE_FLOAT32,
-  CDS_TYPE_FLOAT64,
-} CdsType;
-
 // Indexed by CdsType, so the order must match the enum.
 static constexpr size_t cds_type_size[] = {
     sizeof(float),
     sizeof(double),
+    sizeof(int32_t),
 };
 
 /**

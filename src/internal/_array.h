@@ -29,7 +29,13 @@ struct CdsArray {
 static constexpr size_t cds_alignof[] = {
     alignof(float),
     alignof(double),
+    alignof(int32_t),
 };
+
+// The arithmetic kernels work on floating point arrays only.
+static inline bool cds_is_float(CdsType type) {
+  return type == CDS_TYPE_FLOAT32 || type == CDS_TYPE_FLOAT64;
+}
 
 // Host side, uniform in [low, high) from rand(). Feeds a staging buffer that
 // is then copied to the device.

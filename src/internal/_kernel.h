@@ -51,6 +51,9 @@ template <typename T>
 CdsError cds_scale_lt(const CdsContext *ctx, const CdsArray *a, const T b,
                       CdsArray *dest);
 
+template <typename T>
+__global__ void cds_argmax_lt(const T *x, int32_t *dest, size_t cols);
+
 CdsError kernel_fill(const CdsContext *ctx, CdsArray *dst, const void *value);
 
 #endif // CDS_INTERNAL_KERNEL_H

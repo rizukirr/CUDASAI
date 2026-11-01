@@ -4,6 +4,7 @@
 void test_host() {
   CHECK(cds_type_size[CDS_TYPE_FLOAT32] == sizeof(float));
   CHECK(cds_type_size[CDS_TYPE_FLOAT64] == sizeof(double));
+  CHECK(cds_type_size[CDS_TYPE_INT32] == sizeof(int32_t));
   CHECK(cds_new(0) == nullptr);
   CHECK(cds_last_error() == CDS_ERR_INVALID);
   cds_free(nullptr);
