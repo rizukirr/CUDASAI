@@ -15,6 +15,7 @@ template <typename T> void test_linear(Cds *root, CdsContext *context);
 template <typename T> void test_softmax(Cds *root, CdsContext *context);
 template <typename T> void test_layernorm(Cds *root, CdsContext *context);
 template <typename T> void test_argmax(Cds *root, CdsContext *context);
+template <typename T> void test_matmul(Cds *root, CdsContext *context);
 template <typename T> void test_error(Cds *root, CdsContext *context);
 template <typename T> void test_context(Cds *root);
 void test_host();

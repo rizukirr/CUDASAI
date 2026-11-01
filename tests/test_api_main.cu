@@ -32,6 +32,8 @@ template <typename T> void run(const char *name) {
     test_layernorm<T>(root, context);
   else if (std::strcmp(name, "argmax") == 0)
     test_argmax<T>(root, context);
+  else if (std::strcmp(name, "matmul") == 0)
+    test_matmul<T>(root, context);
   else if (std::strcmp(name, "error") == 0)
     test_error<T>(root, context);
   else if (std::strcmp(name, "context") == 0)

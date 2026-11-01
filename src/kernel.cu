@@ -72,7 +72,26 @@ CdsError cds_linear(const CdsContext *ctx, const CdsArray *x, const CdsArray *W,
     CDS_TRY(CDS_REQUIRE(b->count == out_features));
   }
 
-  return cds_matmul_lt(ctx, activation, x, W, b, y);
+  return cds_matmul_lt(ctx, activation, x, W, false, true, b, y);
+}
+
+CdsError cds_matmul(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,
+                    bool transpose_a, bool transpose_b, CdsArray *out) {
+  CDS_TRY(CDS_REQUIRE(ctx != nullptr && a != nullptr && b != nullptr &&
+                      out != nullptr));
+  CDS_TRY(CDS_REQUIRE(a->dim == 2 && b->dim == 2 && out->dim == 2));
+  CDS_TRY(CDS_REQUIRE(b->type == a->type && out->type == a->type));
+  CDS_TRY(CDS_REQUIRE(cds_is_float(a->type)));
+
+  const size_t M = a->shape[transpose_a ? 1 : 0];
+  const size_t K = a->shape[transpose_a ? 0 : 1];
+  CDS_TRY(CDS_REQUIRE(b->shape[transpose_b ? 1 : 0] == K));
+  const size_t N = b->shape[transpose_b ? 0 : 1];
+  CDS_TRY(CDS_REQUIRE(out->shape[0] == M && out->shape[1] == N));
+  CDS_TRY(CDS_REQUIRE(M <= INT_MAX && K <= INT_MAX && N <= INT_MAX));
+
+  return cds_matmul_lt(ctx, CDS_ACTIVATION_NONE, a, b, transpose_a, transpose_b,
+                       nullptr, out);
 }
 
 CdsError cds_softmax(const CdsContext *ctx, const CdsArray *x, CdsArray *y) {

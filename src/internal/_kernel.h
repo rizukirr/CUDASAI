@@ -38,6 +38,7 @@ __global__ void cds_softmax_lt(const T *x, T *y, size_t cols);
 
 CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
                        const CdsArray *x, const CdsArray *w,
+                       const bool transpose_x, const bool transpose_w,
                        const CdsArray *bias, CdsArray *y);
 
 CdsError cds_add_lt(const CdsContext *ctx, const CdsArray *a, const CdsArray *b,

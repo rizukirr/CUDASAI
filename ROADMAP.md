@@ -37,7 +37,7 @@ The softmax and layernorm reductions are where most people get their first wrong
 
 ## Stage 3: matmul variants
 
-- [ ] `cds_matmul(a, b, out, transpose_a, transpose_b)`: general `[M,K] · [K,N]` through cuBLASLt with transpose flags. `cds_linear` becomes a thin wrapper. Check: CPU triple loop on 5x7x3.
+- [x] `cds_matmul(a, b, out, transpose_a, transpose_b)`: general `[M,K] · [K,N]` through cuBLASLt with transpose flags. `cds_linear` becomes a thin wrapper. Check: CPU triple loop on 5x7x3.
 - [ ] `cds_matmul_batched(a, b, out, ...)`: the same, batched over a leading dimension, using the cuBLASLt strided batch attributes. Attention needs `Q · K^T` and `P · V` once per head. Check: loop of single matmuls gives the same result.
 - [ ] `cds_transpose_heads(x, out, n_heads)`: `[seq, n_heads * head_dim]` to `[n_heads, seq, head_dim]` and back. A permute kernel. Check: round trip is the identity.
 - [ ] Naive and tiled matmul kernels of your own, even though cuBLASLt will be the one you ship. Benchmark all three on 768x768x1024. Knowing the gap between your tiled kernel and cuBLASLt is the point of the exercise.

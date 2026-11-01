@@ -85,6 +85,7 @@ if(BUILD_TESTING)
     tests/test_softmax.cu
     tests/test_layernorm.cu
     tests/test_argmax.cu
+    tests/test_matmul.cu
     tests/test_error.cu
   )
   target_link_libraries(public_api_test PRIVATE cdscore)
@@ -107,6 +108,7 @@ if(BUILD_TESTING)
         softmax
         layernorm
         argmax
+        matmul
         error)
       add_test(NAME api.${case}.${dtype} COMMAND
         public_api_test ${case} ${dtype})

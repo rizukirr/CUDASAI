@@ -95,11 +95,12 @@ static void matmul_epilogue(cublasLtEpilogue_t *epi, bool use_bias,
 
 CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
                        const CdsArray *x, const CdsArray *w,
+                       const bool transpose_x, const bool transpose_w,
                        const CdsArray *bias, CdsArray *y) {
   assert(ctx != nullptr);
-  const int K = (int)x->shape[x->dim - 1];
-  const int M = (int)((int)x->count / K);
-  const int N = (int)w->shape[0];
+  const int xc = (int)x->shape[x->dim - 1], xr = (int)(x->count / xc);
+  const int wr = (int)w->shape[0], wc = (int)w->shape[1];
+  const int N = (int)y->shape[y->dim - 1], M = (int)(y->count / N);
 
   cudaDataType dtype = CDS_CUDA_TYPE(x->type);
   cublasComputeType_t ctype = CDS_COMPUTE_TYPE(x->type);
@@ -109,7 +110,9 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
   cublasLtMatrixLayout_t a_layout = nullptr, b_layout = nullptr,
                          c_layout = nullptr;
   cublasLtMatmulPreference_t pref = nullptr;
-  cublasOperation_t t = CUBLAS_OP_T, n = CUBLAS_OP_N;
+  cublasOperation_t trans_w = transpose_w ? CUBLAS_OP_T : CUBLAS_OP_N, // TRANSA
+      trans_x = transpose_x ? CUBLAS_OP_T : CUBLAS_OP_N;               // TRANSB
+
   cublasLtEpilogue_t epi;
   matmul_epilogue(&epi, bias != nullptr, activation);
   cublasLtMatmulHeuristicResult_t heur;
@@ -124,9 +127,9 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
   CdsError err;
   if ((err = CDS_CUBLAS(cublasLtMatmulDescCreate(&op, ctype, scale_type))) ||
       (err = CDS_CUBLAS(cublasLtMatmulDescSetAttribute(
-           op, CUBLASLT_MATMUL_DESC_TRANSA, &t, sizeof(t)))) ||
+           op, CUBLASLT_MATMUL_DESC_TRANSA, &trans_w, sizeof(trans_w)))) ||
       (err = CDS_CUBLAS(cublasLtMatmulDescSetAttribute(
-           op, CUBLASLT_MATMUL_DESC_TRANSB, &n, sizeof(n)))) ||
+           op, CUBLASLT_MATMUL_DESC_TRANSB, &trans_x, sizeof(trans_x)))) ||
       (err = CDS_CUBLAS(cublasLtMatmulDescSetAttribute(
            op, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)))))
     goto done;
@@ -136,10 +139,10 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
                    sizeof(bias->data)))))
     goto done;
 
-  if ((err =
-           CDS_CUBLAS(cublasLtMatrixLayoutCreate(&a_layout, dtype, K, N, K))) ||
-      (err =
-           CDS_CUBLAS(cublasLtMatrixLayoutCreate(&b_layout, dtype, K, M, K))) ||
+  if ((err = CDS_CUBLAS(
+           cublasLtMatrixLayoutCreate(&a_layout, dtype, wc, wr, wc))) ||
+      (err = CDS_CUBLAS(
+           cublasLtMatrixLayoutCreate(&b_layout, dtype, xc, xr, xc))) ||
       (err =
            CDS_CUBLAS(cublasLtMatrixLayoutCreate(&c_layout, dtype, N, M, N))) ||
       (err = CDS_CUBLAS(cublasLtMatmulPreferenceCreate(&pref))) ||
@@ -153,7 +156,8 @@ CdsError cds_matmul_lt(const CdsContext *ctx, CdsActivation activation,
 
   if (found == 0) {
     err = CDS_FAIL(CDS_ERR_INTERNAL,
-                   "cuBLASLt: no algorithm for M=%d N=%d K=%d", M, N, K);
+                   "cuBLASLt: no algorithm for x=[%d, %d] w=[%d, %d]", xr, xc, wr,
+                   wc);
     goto done;
   }
 

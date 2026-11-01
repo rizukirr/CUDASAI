@@ -35,6 +35,24 @@ template <typename T> void test_error(Cds *root, CdsContext *context) {
                CDS_ERR_INVALID, "in_features");
   expect_error(cds_to_host(a, nullptr), CDS_ERR_INVALID, "dst");
 
+  const size_t w23[] = {2, 3}, w32[] = {3, 2}, w22[] = {2, 2};
+  CdsArray *m23 = cds_array(root, w23, 2, dtype<T>(), nullptr);
+  CdsArray *m32 = cds_array(root, w32, 2, dtype<T>(), nullptr);
+  CdsArray *m22 = cds_array(root, w22, 2, dtype<T>(), nullptr);
+  CHECK(m23 && m32 && m22);
+  // [2, 3] · [2, 3] only fits once one side is flipped.
+  expect_error(cds_matmul(context, m23, m23, false, false, m22),
+               CDS_ERR_INVALID, "== K");
+  expect_error(cds_matmul(context, m23, m23, true, true, m32), CDS_ERR_INVALID,
+               "== K");
+  // The flags change the output shape too.
+  expect_error(cds_matmul(context, m23, m23, false, true, m32), CDS_ERR_INVALID,
+               "out->shape");
+  expect_error(cds_matmul(context, a, m23, false, false, m22), CDS_ERR_INVALID,
+               "a->dim");
+  expect_error(cds_matmul(context, m23, nullptr, false, false, m22),
+               CDS_ERR_INVALID, "nullptr");
+
   const size_t row[] = {1};
   const int32_t ints[] = {1, 2};
   CdsArray *i2 = cds_array(root, two, 1, CDS_TYPE_INT32, ints);

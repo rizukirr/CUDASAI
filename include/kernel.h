@@ -55,6 +55,21 @@ CDS_API CdsError cds_linear(const CdsContext *ctx, const CdsArray *x,
                             CdsActivation activation, CdsArray *y);
 
 /**
+ * out = op(a) · op(b), row-major, through cuBLASLt. op flips its matrix when
+ * the matching transpose flag is set and leaves it alone otherwise.
+ *
+ * After the flags are applied, a must be [M, K] and b must be [K, N]. out is
+ * [M, N]. All three are 2-D and share one float dtype. The caller allocates
+ * out, whose device memory must not overlap either input.
+ * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch
+ * errors are caught here: a fault while the queued work runs is reported by the
+ * next synchronizing call, such as cds_to_host.
+ */
+CDS_API CdsError cds_matmul(const CdsContext *ctx, const CdsArray *a,
+                            const CdsArray *b, bool transpose_a,
+                            bool transpose_b, CdsArray *out);
+
+/**
  * Apply softmax over the last dimension.
  * Input and output must have identical shapes and types.
  * Returns CDS_OK, or the failure also recorded in cds_last_error(). Only launch
